@@ -1,0 +1,15 @@
+# PowerShell and test outputs
+TestResults/
+*.trx
+*.coveragexml
+*.ps1xml
+
+# Local/editor files
+.vscode/
+.idea/
+*.log
+*.tmp
+
+# OS metadata
+Thumbs.db
+desktop.ini
