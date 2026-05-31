@@ -1,4 +1,4 @@
-# Sidebar section: brand, provider selector, catalog info, and categories.
+﻿# Sidebar section: brand, provider selector, catalog info, and categories.
 Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot 'UiTheme.psm1') -Force
@@ -30,7 +30,7 @@ function New-KapselSidebar {
 
     $sidebar = New-Object System.Windows.Forms.Panel
     $sidebar.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $sidebar.Padding = New-Object System.Windows.Forms.Padding(18)
+    $sidebar.Padding = New-Object System.Windows.Forms.Padding(18, 18, 18, 12)
     $sidebar.BackColor = $colors.Sidebar
 
     $brand = New-Object System.Windows.Forms.Label
@@ -67,14 +67,14 @@ function New-KapselSidebar {
 
     $managerLabel = New-Object System.Windows.Forms.Label
     $managerLabel.Dock = [System.Windows.Forms.DockStyle]::Top
-    $managerLabel.Height = 56
+    $managerLabel.Height = 44
     $managerLabel.ForeColor = $colors.Muted
     $managerLabel.Font = New-KapselFont -Size 8
     $managerLabel.Text = "winget: $($ManagerStatus.WingetAvailable)`r`nchoco: $($ManagerStatus.ChocoAvailable)"
 
     $infoPanel = New-Object System.Windows.Forms.Panel
     $infoPanel.Dock = [System.Windows.Forms.DockStyle]::Top
-    $infoPanel.Height = 246
+    $infoPanel.Height = 224
     $infoPanel.Margin = New-Object System.Windows.Forms.Padding(0, 18, 0, 0)
     $infoPanel.BackColor = $colors.Surface
 
@@ -91,7 +91,7 @@ function New-KapselSidebar {
     $infoText.Left = 12
     $infoText.Top = 38
     $infoText.Width = 210
-    $infoText.Height = 198
+    $infoText.Height = 176
     $infoText.Font = New-KapselFont -Size 8
     $infoText.ForeColor = $colors.Muted
     $infoText.Text = @(
@@ -118,7 +118,7 @@ function New-KapselSidebar {
 
     $categoryTree = New-Object System.Windows.Forms.TreeView
     $categoryTree.Dock = [System.Windows.Forms.DockStyle]::Top
-    $categoryTree.Height = 238
+    $categoryTree.Height = 274
     $categoryTree.BackColor = $colors.Surface
     $categoryTree.ForeColor = $colors.Text
     $categoryTree.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
@@ -139,7 +139,7 @@ function New-KapselSidebar {
         [void] $categoryTree.Nodes.Add($node)
 
         if ($category -eq $DefaultCategory) {
-            $categoryTree.SelectedNode = $allNode
+            $categoryTree.SelectedNode = $node
         }
     }
 
@@ -153,3 +153,4 @@ function New-KapselSidebar {
 }
 
 Export-ModuleMember -Function 'New-KapselSidebar'
+

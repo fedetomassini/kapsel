@@ -1,4 +1,4 @@
-# Kapsel
+﻿# Kapsel
 
 Kapsel is a Windows Forms application written in PowerShell for installing and updating applications from a local catalog: `src/applications.json`.
 
@@ -40,6 +40,7 @@ The interface supports:
 - installing selected applications
 - updating selected applications
 - opening the official website for the selected application
+- reviewing built-in Features and Changelog tabs
 
 ## Catalog
 
@@ -84,6 +85,7 @@ src/
   modules/
     Applications.psm1
     ApplicationGrid.psm1
+    ApplicationInfo.psm1
     ApplicationMain.psm1
     ApplicationSidebar.psm1
     Branding.psm1
@@ -114,3 +116,5 @@ Tests validate the catalog and package-manager argument generation. They do not 
 - Kapsel does not download binaries directly.
 - Operations are delegated to `winget` or Chocolatey.
 - The catalog is local and maintainable by hand.
+
+

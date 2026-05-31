@@ -1,11 +1,10 @@
-# Shared Windows Forms styling primitives for Kapsel.
+﻿# Shared Windows Forms styling primitives for Kapsel.
 Set-StrictMode -Version Latest
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Kapsel's UI theme is defined here, with colors, fonts, and common controls.
-
 $script:KapselFontFamily = $null
 
 function Get-KapselUiColors {
@@ -27,6 +26,7 @@ function Get-KapselUiColors {
         Status     = [System.Drawing.Color]::FromArgb(20, 22, 26)
     }
 }
+
 function Get-KapselUiFontFamily {
     [CmdletBinding()]
     param()
@@ -73,10 +73,29 @@ function New-KapselButton {
     $button.Margin = New-Object System.Windows.Forms.Padding(0, 0, 10, 0)
     $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $button.FlatAppearance.BorderColor = $colors.Border
+    $button.FlatAppearance.MouseOverBackColor = $colors.Surface
+    $button.FlatAppearance.MouseDownBackColor = $colors.AccentDark
     $button.BackColor = $BackColor
     $button.ForeColor = $colors.Text
     $button.Font = New-KapselFont -Size 9
     return $button
+}
+
+function New-KapselSectionLabel {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Text
+    )
+
+    $colors = Get-KapselUiColors
+    $label = New-Object System.Windows.Forms.Label
+    $label.Text = $Text
+    $label.Dock = [System.Windows.Forms.DockStyle]::Top
+    $label.Height = 18
+    $label.ForeColor = $colors.Muted
+    $label.Font = New-KapselFont -Size 8
+    return $label
 }
 
 function New-KapselStat {
@@ -133,6 +152,7 @@ Export-ModuleMember -Function @(
     'Initialize-KapselUiTheme',
     'New-KapselFont',
     'New-KapselButton',
+    'New-KapselSectionLabel',
     'New-KapselStat',
     'Write-KapselLog'
 )
