@@ -1,4 +1,4 @@
-# Bottom information section: activity log, features, and changelog.
+﻿# Bottom information section: activity log, features, and changelog.
 Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot 'UiTheme.psm1') -Force
@@ -6,45 +6,25 @@ Import-Module (Join-Path $PSScriptRoot 'UiTheme.psm1') -Force
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-function New-KapselReadOnlyTextBox {
-    [CmdletBinding()]
-    param(
-        [string] $Text = ''
-    )
-
-    $colors = Get-KapselUiColors
-    $textBox = New-Object System.Windows.Forms.TextBox
-    $textBox.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $textBox.Multiline = $true
-    $textBox.ReadOnly = $true
-    $textBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
-    $textBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $textBox.BackColor = $colors.Surface
-    $textBox.ForeColor = $colors.Text
-    $textBox.Font = New-KapselFont -Size 8.5
-    $textBox.Text = $Text
-    return $textBox
-}
-
-function Get-KapselFeatureText {
+function Get-KapselFeatureLines {
     [CmdletBinding()]
     param()
 
     return @(
         'Features',
         '',
-        '- Curated local application catalog from src/applications.json.',
-        '- Category navigation for focused application discovery.',
-        '- Search by name, key, description, winget id, or Chocolatey id.',
-        '- Optional FOSS-only filter for open-source software.',
-        '- Batch install and update through winget or Chocolatey.',
-        '- Explicit confirmation before package operations.',
-        '- Package manager availability shown inside the UI.',
-        '- Official website shortcut for the selected application.'
-    ) -join [Environment]::NewLine
+        'Curated catalog from src/applications.json.',
+        'Category navigation with focused application discovery.',
+        'Search by name, key, description, winget id, or Chocolatey id.',
+        'FOSS-only filtering for open-source software.',
+        'Batch install and update through winget or Chocolatey.',
+        'Explicit confirmation before package operations.',
+        'Package manager availability shown inside the UI.',
+        'Official website shortcut for the selected application.'
+    )
 }
 
-function Get-KapselChangelogText {
+function Get-KapselChangelogLines {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -55,12 +35,31 @@ function Get-KapselChangelogText {
         'Changelog',
         '',
         "Version $($Metadata.Version)",
-        '- Renamed the project to Kapsel.',
-        '- Reworked the app around application install and update workflows.',
-        '- Split the Windows Forms UI into focused modules.',
-        '- Added Features and Changelog sections to the interface.',
-        '- Improved filter, action, and activity areas for better scanning.'
-    ) -join [Environment]::NewLine
+        'Modernized the main application layout.',
+        'Added logo support through src/images.',
+        'Replaced visual text fields with non-selectable labels.',
+        'Improved activity, features, and changelog sections.',
+        'Refined grid density, action controls, and package workflow feedback.'
+    )
+}
+
+function New-KapselInfoPage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Title,
+
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control] $Content
+    )
+
+    $colors = Get-KapselUiColors
+    $page = New-Object System.Windows.Forms.TabPage
+    $page.Text = $Title
+    $page.BackColor = $colors.Window
+    $page.Padding = New-Object System.Windows.Forms.Padding(0)
+    $page.Controls.Add($Content)
+    return $page
 }
 
 function New-KapselInfoSection {
@@ -74,25 +73,19 @@ function New-KapselInfoSection {
     $tabs = New-Object System.Windows.Forms.TabControl
     $tabs.Dock = [System.Windows.Forms.DockStyle]::Fill
     $tabs.Font = New-KapselFont -Size 8.5
-    $tabs.Appearance = [System.Windows.Forms.TabAppearance]::Normal
+    $tabs.Appearance = [System.Windows.Forms.TabAppearance]::FlatButtons
+    $tabs.ItemSize = New-Object System.Drawing.Size(104, 28)
+    $tabs.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
 
-    $activityPage = New-Object System.Windows.Forms.TabPage
-    $activityPage.Text = 'Activity'
-    $activityPage.BackColor = $colors.Window
-    $activityLog = New-KapselReadOnlyTextBox
-    $activityPage.Controls.Add($activityLog)
+    $activityLog = New-KapselVisualTextPanel
+    $featuresPanel = New-KapselVisualTextPanel -Lines (Get-KapselFeatureLines)
+    $changelogPanel = New-KapselVisualTextPanel -Lines (Get-KapselChangelogLines -Metadata $Metadata)
 
-    $featuresPage = New-Object System.Windows.Forms.TabPage
-    $featuresPage.Text = 'Features'
-    $featuresPage.BackColor = $colors.Window
-    $featuresPage.Controls.Add((New-KapselReadOnlyTextBox -Text (Get-KapselFeatureText)))
-
-    $changelogPage = New-Object System.Windows.Forms.TabPage
-    $changelogPage.Text = 'Changelog'
-    $changelogPage.BackColor = $colors.Window
-    $changelogPage.Controls.Add((New-KapselReadOnlyTextBox -Text (Get-KapselChangelogText -Metadata $Metadata)))
-
-    $tabs.TabPages.AddRange(@($activityPage, $featuresPage, $changelogPage))
+    $tabs.TabPages.AddRange(@(
+        (New-KapselInfoPage -Title 'Activity' -Content $activityLog),
+        (New-KapselInfoPage -Title 'Features' -Content $featuresPanel),
+        (New-KapselInfoPage -Title 'Changelog' -Content $changelogPanel)
+    ))
 
     return [PSCustomObject] @{
         Panel  = $tabs
@@ -102,6 +95,6 @@ function New-KapselInfoSection {
 
 Export-ModuleMember -Function @(
     'New-KapselInfoSection',
-    'Get-KapselFeatureText',
-    'Get-KapselChangelogText'
+    'Get-KapselFeatureLines',
+    'Get-KapselChangelogLines'
 )

@@ -1,8 +1,9 @@
-# Kapsel Windows Forms composition root.
+﻿# Kapsel Windows Forms composition root.
 # UI sections live in focused modules; this file only wires state, events, and application flow.
 Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot 'Applications.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Assets.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ApplicationGrid.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ApplicationMain.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ApplicationSidebar.psm1') -Force
@@ -32,10 +33,10 @@ function New-KapselShell {
     $shell.ColumnCount = 2
     $shell.RowCount = 2
     $shell.BackColor = $colors.Window
-    [void] $shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 270)))
+    [void] $shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 318)))
     [void] $shell.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     [void] $shell.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void] $shell.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 34)))
+    [void] $shell.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 38)))
 
     $shell.Controls.Add($Sidebar, 0, 0)
     $shell.Controls.Add($Main, 1, 0)
@@ -56,7 +57,7 @@ function New-KapselStatusLabel {
     $statusLabel.Text = "Ready - $($Metadata.Name) $($Metadata.Version) by $($Metadata.Creator)"
     $statusLabel.Dock = [System.Windows.Forms.DockStyle]::Fill
     $statusLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-    $statusLabel.Padding = New-Object System.Windows.Forms.Padding(16, 0, 0, 0)
+    $statusLabel.Padding = New-Object System.Windows.Forms.Padding(18, 0, 0, 0)
     $statusLabel.BackColor = $colors.Status
     $statusLabel.ForeColor = $colors.Muted
     $statusLabel.Font = New-KapselFont -Size 8.5
@@ -83,10 +84,14 @@ function Show-KapselGui {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = $metadata.Name
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
-    $form.MinimumSize = New-Object System.Drawing.Size(1180, 760)
-    $form.Size = New-Object System.Drawing.Size(1360, 820)
+    $form.MinimumSize = New-Object System.Drawing.Size(1280, 780)
+    $form.Size = New-Object System.Drawing.Size(1480, 880)
     $form.BackColor = $colors.Window
     $form.Font = New-KapselFont -Size 9
+    $logoPath = Get-KapselLogoPath
+    if ($logoPath -and [System.IO.Path]::GetExtension($logoPath) -ieq '.ico') {
+        $form.Icon = New-Object System.Drawing.Icon($logoPath)
+    }
 
     $sidebar = New-KapselSidebar -Metadata $metadata -Catalog $catalog -Categories $visibleCategories -DefaultCategory $defaultCategory -ManagerStatus $managerStatus
     $main = New-KapselMainContent -Metadata $metadata -Catalog $catalog -Categories $categories
@@ -198,3 +203,4 @@ function Show-KapselGui {
 }
 
 Export-ModuleMember -Function 'Show-KapselGui'
+

@@ -8,6 +8,26 @@ Import-Module (Join-Path $PSScriptRoot 'UiTheme.psm1') -Force
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+function New-KapselFilterBox {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Label,
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Control] $Control
+    )
+
+    $colors = Get-KapselUiColors
+    $panel = New-Object System.Windows.Forms.Panel
+    $panel.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $panel.BackColor = $colors.Surface
+    $panel.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 10)
+    $Control.Dock = [System.Windows.Forms.DockStyle]::Bottom
+    $panel.Controls.Add($Control)
+    $panel.Controls.Add((New-KapselSectionLabel -Text $Label))
+    return $panel
+}
+
 # Creates the main content panel with title, stats, filters, action buttons, application grid, and lower information tabs.
 function New-KapselMainContent {
     [CmdletBinding()]
@@ -26,34 +46,23 @@ function New-KapselMainContent {
 
     $main = New-Object System.Windows.Forms.TableLayoutPanel
     $main.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $main.Padding = New-Object System.Windows.Forms.Padding(22)
+    $main.Padding = New-Object System.Windows.Forms.Padding(24, 22, 24, 20)
     $main.BackColor = $colors.Window
     $main.ColumnCount = 1
     $main.RowCount = 6
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 62)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 78)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 58)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 46)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 72)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 82)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 74)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 48)))
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 185)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 190)))
 
     $titlePanel = New-Object System.Windows.Forms.Panel
     $titlePanel.Dock = [System.Windows.Forms.DockStyle]::Fill
     $titlePanel.BackColor = $colors.Window
 
-    $title = New-Object System.Windows.Forms.Label
-    $title.Text = 'Applications'
-    $title.Dock = [System.Windows.Forms.DockStyle]::Top
-    $title.Height = 34
-    $title.Font = New-KapselFont -Size 18 -Style ([System.Drawing.FontStyle]::Bold)
-    $title.ForeColor = $colors.Text
-
-    $description = New-Object System.Windows.Forms.Label
-    $description.Text = 'Install and update curated applications with winget or Chocolatey.'
-    $description.Dock = [System.Windows.Forms.DockStyle]::Top
-    $description.Height = 22
-    $description.Font = New-KapselFont -Size 9
-    $description.ForeColor = $colors.Muted
+    $title = New-KapselTextLabel -Text 'Applications' -Size 20 -Color $colors.Text -Style ([System.Drawing.FontStyle]::Bold) -Height 38
+    $description = New-KapselTextLabel -Text 'Install and update curated Windows applications with a controlled package-manager workflow.' -Size 9 -Color $colors.Muted -Height 24
     $titlePanel.Controls.AddRange(@($description, $title))
 
     $statsPanel = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -61,72 +70,57 @@ function New-KapselMainContent {
     $statsPanel.BackColor = $colors.Window
     $statsPanel.WrapContents = $false
     $statsPanel.Controls.AddRange(@(
-        (New-KapselStat -Title 'Applications' -Value ([string] $Catalog.Count)),
-        (New-KapselStat -Title 'Categories' -Value ([string] (($Categories.Count) - 1))),
-        (New-KapselStat -Title 'FOSS' -Value ([string] (@($Catalog | Where-Object { $_.Foss }).Count))),
-        (New-KapselStat -Title 'winget packages' -Value ([string] (@($Catalog | Where-Object { $_.WingetId }).Count))),
-        (New-KapselStat -Title 'choco packages' -Value ([string] (@($Catalog | Where-Object { $_.ChocoId }).Count)))
+        (New-KapselStat -Title 'Applications' -Value ([string] $Catalog.Count) -AccentColor $colors.Accent),
+        (New-KapselStat -Title 'Categories' -Value ([string] (($Categories.Count) - 1)) -AccentColor $colors.AccentBlue),
+        (New-KapselStat -Title 'FOSS' -Value ([string] (@($Catalog | Where-Object { $_.Foss }).Count)) -AccentColor $colors.Accent),
+        (New-KapselStat -Title 'winget' -Value ([string] (@($Catalog | Where-Object { $_.WingetId }).Count)) -AccentColor $colors.Warning),
+        (New-KapselStat -Title 'Chocolatey' -Value ([string] (@($Catalog | Where-Object { $_.ChocoId }).Count)) -AccentColor $colors.SurfaceSoft)
     ))
 
-    $filterPanel = New-Object System.Windows.Forms.TableLayoutPanel
-    $filterPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $filterPanel.ColumnCount = 3
-    $filterPanel.RowCount = 1
-    $filterPanel.BackColor = $colors.Window
-    [void] $filterPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void] $filterPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 118)))
-    [void] $filterPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 126)))
-
-    $searchPanel = New-Object System.Windows.Forms.Panel
-    $searchPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $searchPanel.BackColor = $colors.Window
+    $filterCard = New-KapselCard -Dock ([System.Windows.Forms.DockStyle]::Fill) -Padding (New-Object System.Windows.Forms.Padding(10))
+    $filterGrid = New-Object System.Windows.Forms.TableLayoutPanel
+    $filterGrid.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $filterGrid.BackColor = $colors.Surface
+    $filterGrid.ColumnCount = 3
+    $filterGrid.RowCount = 1
+    [void] $filterGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void] $filterGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 150)))
+    [void] $filterGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 136)))
 
     $searchBox = New-Object System.Windows.Forms.TextBox
-    $searchBox.Dock = [System.Windows.Forms.DockStyle]::Bottom
-    $searchBox.Height = 26
-    $searchBox.BackColor = $colors.Surface
+    $searchBox.Height = 30
+    $searchBox.BackColor = $colors.SurfaceAlt
     $searchBox.ForeColor = $colors.Text
     $searchBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $searchBox.Font = New-KapselFont -Size 9
-    $searchPanel.Controls.Add($searchBox)
-    $searchPanel.Controls.Add((New-KapselSectionLabel -Text 'Search'))
 
-    $fossPanel = New-Object System.Windows.Forms.Panel
-    $fossPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $fossPanel.BackColor = $colors.Window
     $fossOnly = New-Object System.Windows.Forms.CheckBox
     $fossOnly.Text = 'FOSS only'
-    $fossOnly.Dock = [System.Windows.Forms.DockStyle]::Bottom
-    $fossOnly.Height = 28
+    $fossOnly.Height = 30
     $fossOnly.ForeColor = $colors.Text
     $fossOnly.Font = New-KapselFont -Size 9
-    $fossPanel.Controls.Add($fossOnly)
-    $fossPanel.Controls.Add((New-KapselSectionLabel -Text 'License'))
+    $fossOnly.BackColor = $colors.Surface
 
     $toolTip = New-Object System.Windows.Forms.ToolTip
     $toolTip.SetToolTip($fossOnly, 'FOSS means Free and Open Source Software: source code is publicly available under an open license.')
 
-    $refreshPanel = New-Object System.Windows.Forms.Panel
-    $refreshPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $refreshPanel.BackColor = $colors.Window
-    $refreshButton = New-KapselButton -Text 'Refresh'
-    $refreshButton.Dock = [System.Windows.Forms.DockStyle]::Bottom
-    $refreshPanel.Controls.Add($refreshButton)
-    $refreshPanel.Controls.Add((New-KapselSectionLabel -Text 'Catalog'))
+    $refreshButton = New-KapselButton -Text 'Refresh' -Width 116
+    $refreshButton.Height = 30
 
-    $filterPanel.Controls.Add($searchPanel, 0, 0)
-    $filterPanel.Controls.Add($fossPanel, 1, 0)
-    $filterPanel.Controls.Add($refreshPanel, 2, 0)
+    $filterGrid.Controls.Add((New-KapselFilterBox -Label 'Search catalog' -Control $searchBox), 0, 0)
+    $filterGrid.Controls.Add((New-KapselFilterBox -Label 'License' -Control $fossOnly), 1, 0)
+    $filterGrid.Controls.Add((New-KapselFilterBox -Label 'Data' -Control $refreshButton), 2, 0)
+    $filterCard.Controls.Add($filterGrid)
 
     $actionsPanel = New-Object System.Windows.Forms.FlowLayoutPanel
     $actionsPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
     $actionsPanel.BackColor = $colors.Window
     $actionsPanel.WrapContents = $false
-    $selectAllButton = New-KapselButton -Text 'Select visible'
-    $clearButton = New-KapselButton -Text 'Clear selection'
-    $installButton = New-KapselButton -Text 'Install selected' -BackColor $colors.AccentDark
-    $upgradeButton = New-KapselButton -Text 'Update selected' -BackColor $colors.Warning
-    $openLinkButton = New-KapselButton -Text 'Open website'
+    $selectAllButton = New-KapselButton -Text 'Select visible' -Width 134
+    $clearButton = New-KapselButton -Text 'Clear selection' -Width 140
+    $installButton = New-KapselButton -Text 'Install selected' -BackColor $colors.AccentDark -Width 144
+    $upgradeButton = New-KapselButton -Text 'Update selected' -BackColor $colors.Warning -Width 144
+    $openLinkButton = New-KapselButton -Text 'Open website' -Width 132
     $actionsPanel.Controls.AddRange(@($selectAllButton, $clearButton, $installButton, $upgradeButton, $openLinkButton))
 
     $grid = New-KapselApplicationGrid
@@ -134,7 +128,7 @@ function New-KapselMainContent {
 
     $main.Controls.Add($titlePanel, 0, 0)
     $main.Controls.Add($statsPanel, 0, 1)
-    $main.Controls.Add($filterPanel, 0, 2)
+    $main.Controls.Add($filterCard, 0, 2)
     $main.Controls.Add($actionsPanel, 0, 3)
     $main.Controls.Add($grid, 0, 4)
     $main.Controls.Add($infoSection.Panel, 0, 5)

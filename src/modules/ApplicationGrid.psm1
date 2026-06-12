@@ -1,4 +1,4 @@
-# Application table and grid helpers.
+﻿# Application table and grid helpers.
 Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot 'UiTheme.psm1') -Force
@@ -50,22 +50,31 @@ function New-KapselApplicationGrid {
     $grid.AutoGenerateColumns = $false
     $grid.AllowUserToAddRows = $false
     $grid.AllowUserToDeleteRows = $false
+    $grid.AllowUserToResizeRows = $false
+    $grid.MultiSelect = $false
     $grid.SelectionMode = [System.Windows.Forms.DataGridViewSelectionMode]::FullRowSelect
     $grid.BackgroundColor = $colors.Surface
     $grid.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $grid.CellBorderStyle = [System.Windows.Forms.DataGridViewCellBorderStyle]::SingleHorizontal
     $grid.GridColor = $colors.Border
     $grid.RowHeadersVisible = $false
     $grid.EnableHeadersVisualStyles = $false
+    $grid.ColumnHeadersHeight = 34
+    $grid.ColumnHeadersHeightSizeMode = [System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode]::DisableResizing
+    $grid.RowTemplate.Height = 34
+    $grid.EditMode = [System.Windows.Forms.DataGridViewEditMode]::EditOnEnter
     $grid.ColumnHeadersDefaultCellStyle.BackColor = $colors.SurfaceAlt
     $grid.ColumnHeadersDefaultCellStyle.ForeColor = $colors.Text
+    $grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = $colors.SurfaceAlt
+    $grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = $colors.Text
     $grid.ColumnHeadersDefaultCellStyle.Font = New-KapselFont -Size 9 -Style ([System.Drawing.FontStyle]::Bold)
     $grid.DefaultCellStyle.BackColor = $colors.Surface
     $grid.DefaultCellStyle.ForeColor = $colors.Text
-    $grid.DefaultCellStyle.SelectionBackColor = [System.Drawing.Color]::FromArgb(54, 89, 82)
+    $grid.DefaultCellStyle.SelectionBackColor = $colors.Selection
     $grid.DefaultCellStyle.SelectionForeColor = $colors.Text
     $grid.DefaultCellStyle.Font = New-KapselFont -Size 8.5
-    $grid.AlternatingRowsDefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(39, 42, 48)
-    $grid.AutoSizeRowsMode = [System.Windows.Forms.DataGridViewAutoSizeRowsMode]::DisplayedCells
+    $grid.AlternatingRowsDefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(31, 36, 43)
+    $grid.AutoSizeRowsMode = [System.Windows.Forms.DataGridViewAutoSizeRowsMode]::None
     return $grid
 }
 
@@ -82,18 +91,19 @@ function Set-KapselApplicationGrid {
         $selectedColumn.Name = 'Selected'
         $selectedColumn.HeaderText = ''
         $selectedColumn.DataPropertyName = 'Selected'
-        $selectedColumn.Width = 38
+        $selectedColumn.Width = 42
+        $selectedColumn.ReadOnly = $false
         [void] $Grid.Columns.Add($selectedColumn)
 
         foreach ($column in @(
             [PSCustomObject] @{ Name = 'Key'; Header = 'Key'; Width = 80; Visible = $false; Fill = $false },
-            [PSCustomObject] @{ Name = 'Name'; Header = 'Name'; Width = 190; Visible = $true; Fill = $false },
-            [PSCustomObject] @{ Name = 'Category'; Header = 'Category'; Width = 135; Visible = $true; Fill = $false },
-            [PSCustomObject] @{ Name = 'Provider'; Header = 'Provider'; Width = 80; Visible = $true; Fill = $false },
+            [PSCustomObject] @{ Name = 'Name'; Header = 'Application'; Width = 210; Visible = $true; Fill = $false },
+            [PSCustomObject] @{ Name = 'Category'; Header = 'Category'; Width = 140; Visible = $true; Fill = $false },
+            [PSCustomObject] @{ Name = 'Provider'; Header = 'Provider'; Width = 88; Visible = $true; Fill = $false },
             [PSCustomObject] @{ Name = 'WingetId'; Header = 'winget'; Width = 160; Visible = $false; Fill = $false },
             [PSCustomObject] @{ Name = 'ChocoId'; Header = 'choco'; Width = 150; Visible = $false; Fill = $false },
-            [PSCustomObject] @{ Name = 'FOSS'; Header = 'FOSS'; Width = 60; Visible = $true; Fill = $false },
-            [PSCustomObject] @{ Name = 'Description'; Header = 'Description'; Width = 300; Visible = $true; Fill = $true }
+            [PSCustomObject] @{ Name = 'FOSS'; Header = 'FOSS'; Width = 64; Visible = $true; Fill = $false },
+            [PSCustomObject] @{ Name = 'Description'; Header = 'Description'; Width = 360; Visible = $true; Fill = $true }
         )) {
             $gridColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
             $gridColumn.Name = $column.Name
@@ -101,6 +111,7 @@ function Set-KapselApplicationGrid {
             $gridColumn.DataPropertyName = $column.Name
             $gridColumn.Width = $column.Width
             $gridColumn.Visible = $column.Visible
+            $gridColumn.ReadOnly = $true
             if ($column.Fill) {
                 $gridColumn.AutoSizeMode = [System.Windows.Forms.DataGridViewAutoSizeColumnMode]::Fill
             }
@@ -125,6 +136,7 @@ function Get-KapselSelectedApplications {
         [object[]] $Catalog
     )
 
+    $Grid.EndEdit()
     $selectedKeys = New-Object System.Collections.Generic.List[string]
     foreach ($row in $Grid.Rows) {
         if (-not $row.IsNewRow -and $row.Cells['Selected'].Value -eq $true) {
