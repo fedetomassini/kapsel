@@ -54,6 +54,17 @@ Describe 'Application catalog' {
         $arguments -contains '-y' | Should Be $true
     }
 
+    It 'checks package provider support before execution' {
+        $application = [PSCustomObject] @{
+            Name     = 'Git'
+            WingetId = 'Git.Git'
+            ChocoId  = $null
+        }
+
+        Test-KapselApplicationProviderSupport -Application $application -Provider winget | Should Be $true
+        Test-KapselApplicationProviderSupport -Application $application -Provider choco | Should Be $false
+    }
+
     It 'can filter applications by category and FOSS state' {
         $catalog = @(Get-KapselApplicationCatalog -Path (Join-Path $ProjectRoot 'src\applications.json'))
         $filtered = @(Search-KapselApplicationCatalog -Applications $catalog -Category 'Browsers' -FossOnly)

@@ -21,6 +21,49 @@ function Add-KapselAboutLine {
     $Panel.Controls.Add($label)
 }
 
+function New-KapselProviderOption {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Text,
+
+        [Parameter(Mandatory = $true)]
+        [bool] $Available
+    )
+
+    $colors = Get-KapselUiColors
+    $option = New-Object System.Windows.Forms.Button
+    $option.Text = $Text
+    $option.Tag = $Text
+    $option.Width = 112
+    $option.Height = 34
+    $option.Margin = New-Object System.Windows.Forms.Padding(0, 0, 8, 0)
+    $option.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $option.FlatAppearance.MouseOverBackColor = $colors.SurfaceSoft
+    $option.FlatAppearance.MouseDownBackColor = $colors.AccentDark
+    $option.Font = New-KapselFont -Size 8.5
+    $option.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $option.Enabled = $Available
+    return $option
+}
+
+function Set-KapselProviderOptionState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.Button] $Button,
+
+        [Parameter(Mandatory = $true)]
+        [bool] $Active,
+
+        [Parameter(Mandatory = $true)]
+        [bool] $Available
+    )
+
+    $colors = Get-KapselUiColors
+    $Button.BackColor = if ($Active) { $colors.AccentDark } elseif ($Available) { $colors.SurfaceAlt } else { $colors.Surface }
+    $Button.ForeColor = if ($Available) { $colors.Text } else { $colors.Muted }
+    $Button.FlatAppearance.BorderColor = if ($Active) { $colors.Accent } else { $colors.Border }
+}
+
 # Creates the sidebar panel with branding, provider selection, catalog info, and category tree.
 function New-KapselSidebar {
     [CmdletBinding()]
@@ -50,7 +93,7 @@ function New-KapselSidebar {
     $sidebar.ColumnCount = 1
     $sidebar.RowCount = 5
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 82)))
-    [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 120)))
+    [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 96)))
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 182)))
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 30)))
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
@@ -58,13 +101,7 @@ function New-KapselSidebar {
     $brandPanel = New-Object System.Windows.Forms.TableLayoutPanel
     $brandPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
     $brandPanel.BackColor = $colors.Sidebar
-    $brandPanel.ColumnCount = 2
     $brandPanel.RowCount = 1
-    [void] $brandPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 58)))
-    [void] $brandPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-
-    $logo = New-KapselLogoView -LogoPath (Get-KapselLogoPath) -Size 48
-    $logo.Margin = New-Object System.Windows.Forms.Padding(0, 2, 10, 0)
 
     $brandText = New-Object System.Windows.Forms.Panel
     $brandText.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -72,36 +109,54 @@ function New-KapselSidebar {
     $brand = New-KapselTextLabel -Text $Metadata.Name -Size 19 -Color $colors.Text -Style ([System.Drawing.FontStyle]::Bold) -Height 34
     $subtitle = New-KapselTextLabel -Text $Metadata.Description -Size 8.5 -Color $colors.Muted -Height 22
     $brandText.Controls.AddRange(@($subtitle, $brand))
-    $brandPanel.Controls.Add($logo, 0, 0)
-    $brandPanel.Controls.Add($brandText, 1, 0)
+
+    $brandImage = New-KapselBrandImageView -ImagePath (Get-KapselBrandImagePath) -Size 48
+    if ($null -ne $brandImage) {
+        $brandPanel.ColumnCount = 2
+        [void] $brandPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 58)))
+        [void] $brandPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+        $brandImage.Margin = New-Object System.Windows.Forms.Padding(0, 2, 10, 0)
+        $brandPanel.Controls.Add($brandImage, 0, 0)
+        $brandPanel.Controls.Add($brandText, 1, 0)
+    }
+    else {
+        $brandPanel.ColumnCount = 1
+        [void] $brandPanel.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+        $brandPanel.Controls.Add($brandText, 0, 0)
+    }
 
     $providerCard = New-KapselCard -Dock ([System.Windows.Forms.DockStyle]::Fill) -Padding (New-Object System.Windows.Forms.Padding(12))
     $providerTitle = New-KapselTextLabel -Text 'Package provider' -Size 9 -Color $colors.Text -Style ([System.Drawing.FontStyle]::Bold) -Height 24
     $providerHint = New-KapselTextLabel -Text 'Select the backend used for install and update actions.' -Size 8 -Color $colors.Muted -Height 24
 
-    $providerCombo = New-Object System.Windows.Forms.ComboBox
-    $providerCombo.Dock = [System.Windows.Forms.DockStyle]::Top
-    $providerCombo.Height = 28
-    $providerCombo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    $providerCombo.BackColor = $colors.SurfaceAlt
-    $providerCombo.ForeColor = $colors.Text
-    $providerCombo.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $providerCombo.Font = New-KapselFont -Size 9
-    [void] $providerCombo.Items.Add('winget')
-    [void] $providerCombo.Items.Add('choco')
-    $providerCombo.SelectedItem = if ($ManagerStatus.WingetAvailable) { 'winget' } elseif ($ManagerStatus.ChocoAvailable) { 'choco' } else { 'winget' }
+    $selectedProvider = if ($ManagerStatus.WingetAvailable) { 'winget' } elseif ($ManagerStatus.ChocoAvailable) { 'choco' } else { $null }
+    $providerState = [PSCustomObject] @{ Value = $selectedProvider }
 
-    $badges = New-Object System.Windows.Forms.FlowLayoutPanel
-    $badges.Dock = [System.Windows.Forms.DockStyle]::Bottom
-    $badges.Height = 28
-    $badges.BackColor = $colors.Surface
-    $badges.WrapContents = $false
-    $badges.Controls.AddRange(@(
-        (New-KapselBadge -Text 'winget' -Enabled ([bool] $ManagerStatus.WingetAvailable)),
-        (New-KapselBadge -Text 'choco' -Enabled ([bool] $ManagerStatus.ChocoAvailable))
-    ))
+    $providerOptions = New-Object System.Windows.Forms.FlowLayoutPanel
+    $providerOptions.Dock = [System.Windows.Forms.DockStyle]::Top
+    $providerOptions.Height = 40
+    $providerOptions.BackColor = $colors.Surface
+    $providerOptions.WrapContents = $false
 
-    $providerCard.Controls.AddRange(@($badges, $providerCombo, $providerHint, $providerTitle))
+    $wingetOption = New-KapselProviderOption -Text 'winget' -Available ([bool] $ManagerStatus.WingetAvailable)
+    $chocoOption = New-KapselProviderOption -Text 'choco' -Available ([bool] $ManagerStatus.ChocoAvailable)
+
+    $setProvider = {
+        param([AllowNull()] [string] $Provider)
+
+        $isWinget = $Provider -eq 'winget' -and $ManagerStatus.WingetAvailable
+        $isChoco = $Provider -eq 'choco' -and $ManagerStatus.ChocoAvailable
+        $providerState.Value = if ($isWinget) { 'winget' } elseif ($isChoco) { 'choco' } else { $null }
+        Set-KapselProviderOptionState -Button $wingetOption -Active ($providerState.Value -eq 'winget') -Available ([bool] $ManagerStatus.WingetAvailable)
+        Set-KapselProviderOptionState -Button $chocoOption -Active ($providerState.Value -eq 'choco') -Available ([bool] $ManagerStatus.ChocoAvailable)
+    }
+
+    $wingetOption.Add_Click({ & $setProvider 'winget' })
+    $chocoOption.Add_Click({ & $setProvider 'choco' })
+    & $setProvider $selectedProvider
+    $providerOptions.Controls.AddRange(@($wingetOption, $chocoOption))
+
+    $providerCard.Controls.AddRange(@($providerOptions, $providerHint, $providerTitle))
 
     $aboutCard = New-KapselCard -Dock ([System.Windows.Forms.DockStyle]::Fill) -Padding (New-Object System.Windows.Forms.Padding(12))
     Add-KapselAboutLine -Panel $aboutCard -Text 'About' -Strong $true
@@ -124,7 +179,8 @@ function New-KapselSidebar {
     $categoryTree.ShowLines = $false
     $categoryTree.ShowPlusMinus = $false
     $categoryTree.ShowRootLines = $false
-    $categoryTree.ItemHeight = 28
+    $categoryTree.ItemHeight = 30
+    Set-KapselDarkTreeView -TreeView $categoryTree
 
     $allNode = New-Object System.Windows.Forms.TreeNode("All applications ({0})" -f $Catalog.Count)
     $allNode.Tag = 'All'
@@ -153,9 +209,10 @@ function New-KapselSidebar {
 
     return [PSCustomObject] @{
         Panel         = $sidebar
-        ProviderCombo = $providerCombo
+        ProviderState = $providerState
         CategoryTree  = $categoryTree
     }
 }
 
 Export-ModuleMember -Function 'New-KapselSidebar'
+

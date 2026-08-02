@@ -185,33 +185,25 @@ function New-KapselStat {
     return $panel
 }
 
-function New-KapselLogoView {
+function New-KapselBrandImageView {
     [CmdletBinding()]
     param(
-        [string] $LogoPath,
+        [string] $ImagePath,
         [int] $Size = 48
     )
 
     $colors = Get-KapselUiColors
-    if (-not [string]::IsNullOrWhiteSpace($LogoPath) -and (Test-Path -LiteralPath $LogoPath)) {
-        $picture = New-Object System.Windows.Forms.PictureBox
-        $picture.Width = $Size
-        $picture.Height = $Size
-        $picture.BackColor = $colors.Surface
-        $picture.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
-        $picture.Image = [System.Drawing.Image]::FromFile($LogoPath)
-        return $picture
+    if ([string]::IsNullOrWhiteSpace($ImagePath) -or -not (Test-Path -LiteralPath $ImagePath)) {
+        return $null
     }
 
-    $placeholder = New-Object System.Windows.Forms.Panel
-    $placeholder.Width = $Size
-    $placeholder.Height = $Size
-    $placeholder.BackColor = $colors.AccentDark
-
-    $letter = New-KapselTextLabel -Text 'K' -Size 18 -Color $colors.Text -Style ([System.Drawing.FontStyle]::Bold) -Height $Size -Dock ([System.Windows.Forms.DockStyle]::Fill)
-    $letter.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $placeholder.Controls.Add($letter)
-    return $placeholder
+    $picture = New-Object System.Windows.Forms.PictureBox
+    $picture.Width = $Size
+    $picture.Height = $Size
+    $picture.BackColor = $colors.Surface
+    $picture.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
+    $picture.Image = [System.Drawing.Image]::FromFile($ImagePath)
+    return $picture
 }
 
 function New-KapselVisualTextPanel {
@@ -266,6 +258,105 @@ function Add-KapselVisualLine {
     $Panel.ScrollControlIntoView($label)
 }
 
+function Set-KapselTextBoxCueBanner {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.TextBox] $TextBox,
+        [Parameter(Mandatory = $true)]
+        [string] $Text
+    )
+
+    if (-not ('Kapsel.NativeMethods' -as [type])) {
+        Add-Type -TypeDefinition @"
+        using System;
+        using System.Runtime.InteropServices;
+        namespace Kapsel {
+        public static class NativeMethods {
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
+    }
+}
+"@
+    }
+
+    [Kapsel.NativeMethods]::SendMessage($TextBox.Handle, 0x1501, [IntPtr]::Zero, $Text) | Out-Null
+}
+
+function Set-KapselDarkTabControl {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.TabControl] $TabControl
+    )
+
+    $TabControl.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+    $TabControl.Add_DrawItem({
+        param($sender, $eventArgs)
+
+        $colors = Get-KapselUiColors
+        $isSelected = $eventArgs.Index -eq $sender.SelectedIndex
+        $bounds = $sender.GetTabRect($eventArgs.Index)
+        $backColor = if ($isSelected) { $colors.Surface } else { $colors.SurfaceAlt }
+        $foreColor = if ($isSelected) { $colors.Text } else { $colors.Muted }
+
+        $brush = New-Object System.Drawing.SolidBrush($backColor)
+        $eventArgs.Graphics.FillRectangle($brush, $bounds)
+        $brush.Dispose()
+
+        $flags = [System.Windows.Forms.TextFormatFlags]::HorizontalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::EndEllipsis
+        [System.Windows.Forms.TextRenderer]::DrawText(
+            $eventArgs.Graphics,
+            [string] $sender.TabPages[$eventArgs.Index].Text,
+            $sender.Font,
+            $bounds,
+            $foreColor,
+            $flags
+        )
+    })
+}
+
+function Set-KapselDarkTreeView {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Forms.TreeView] $TreeView
+    )
+
+    $TreeView.DrawMode = [System.Windows.Forms.TreeViewDrawMode]::OwnerDrawText
+    $TreeView.Add_DrawNode({
+        param($sender, $eventArgs)
+
+        $colors = Get-KapselUiColors
+        $isSelected = ($eventArgs.State -band [System.Windows.Forms.TreeNodeStates]::Selected) -eq [System.Windows.Forms.TreeNodeStates]::Selected
+        $clientWidth = [int] $sender.ClientSize.Width
+        $itemHeight = [int] $sender.ItemHeight
+        $nodeTop = [int] $eventArgs.Bounds.Top
+        $bounds = New-Object System.Drawing.Rectangle(0, $nodeTop, $clientWidth, $itemHeight)
+        $backColor = if ($isSelected) { $colors.Selection } else { $colors.Surface }
+        $foreColor = if ($isSelected) { $colors.Text } else { $colors.Muted }
+
+        $backBrush = New-Object System.Drawing.SolidBrush($backColor)
+        $eventArgs.Graphics.FillRectangle($backBrush, $bounds)
+        $backBrush.Dispose()
+
+        $textWidth = [Math]::Max(24, $clientWidth - 18)
+        $textBounds = New-Object System.Drawing.Rectangle(12, $nodeTop, $textWidth, $itemHeight)
+        $flags = [System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::EndEllipsis -bor
+            [System.Windows.Forms.TextFormatFlags]::NoPrefix
+        [System.Windows.Forms.TextRenderer]::DrawText(
+            $eventArgs.Graphics,
+            [string] $eventArgs.Node.Text,
+            $sender.Font,
+            $textBounds,
+            $foreColor,
+            $flags
+        )
+    })
+}
 function Write-KapselLog {
     [CmdletBinding()]
     param(
@@ -287,11 +378,17 @@ Export-ModuleMember -Function @(
     'New-KapselTextLabel',
     'New-KapselButton',
     'New-KapselBadge',
-    'New-KapselLogoView',
+    'New-KapselBrandImageView',
     'New-KapselSectionLabel',
     'New-KapselStat',
     'New-KapselVisualTextPanel',
+    'Set-KapselTextBoxCueBanner',
+    'Set-KapselDarkTabControl',
+    'Set-KapselDarkTreeView',
     'Add-KapselVisualLine',
     'Write-KapselLog'
 )
+
+
+
 

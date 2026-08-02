@@ -1,17 +1,32 @@
 ﻿# Kapsel
 
-<p align="center">
-  <img src="assets/kaspel.png" alt="Kapsel application preview" width="860">
-</p>
+Kapsel is a native Windows Forms application written in PowerShell for installing and updating curated Windows applications from a local catalog.
 
-Kapsel is a Windows Forms application written in PowerShell for installing and updating applications from a local catalog: `src/applications.json`.
+It is designed as a practical package launcher: choose applications, pick a provider, confirm the action, and let `winget` or Chocolatey handle the installation.
 
-- Version: `1.0.0`
+## Overview
+
+- Version: `1.1`
 - Creator: Federico Tomassini
+- Platform: Windows 10/11
+- Runtime: PowerShell 5.1 or higher
+- Catalog size: 254 applications
+- Catalog source: `src/applications.json`
 
 The name comes from `capsule`/`kapsel`: a compact container for a curated set of applications that can be installed or updated from one interface.
 
-The app uses `winget` as the primary provider and Chocolatey as an optional fallback when the catalog defines a compatible package.
+## Features
+
+- Native Windows Forms interface.
+- Dark, compact, utility-focused layout.
+- Search by application name, key, description, `winget` id, or Chocolatey id.
+- Category navigation for focused discovery.
+- FOSS-only filter for open-source software.
+- Multi-select install and update workflows.
+- Provider selection between `winget` and Chocolatey.
+- Unavailable package providers are disabled in the UI.
+- Activity log, Features, and Changelog tabs.
+- Official website shortcut for the selected application.
 
 ## Requirements
 
@@ -35,16 +50,73 @@ From `cmd.exe` or Explorer:
 kapsel.cmd
 ```
 
-The interface supports:
+Show version metadata:
 
-- searching applications by name, id, or description
-- browsing applications by category
-- filtering FOSS applications
-- selecting multiple applications
-- installing selected applications
-- updating selected applications
-- opening the official website for the selected application
-- reviewing built-in Features and Changelog tabs
+```powershell
+.\kapsel.ps1 version
+```
+
+Show CLI help:
+
+```powershell
+.\kapsel.ps1 help
+```
+
+## Installation
+
+### Run Without Installing
+
+Use this mode while developing or testing from a cloned repository:
+
+```powershell
+.\kapsel.ps1
+```
+
+If PowerShell blocks script execution, run Kapsel from a trusted terminal with a process-scoped execution policy:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\kapsel.ps1
+```
+
+On Windows, double-clicking a `.ps1` file can open it in an editor instead of running it. Use a terminal, or launch through the command wrapper:
+
+```cmd
+kapsel.cmd
+```
+
+### Install For Current User
+
+Install the launchers into `$HOME\bin` and optionally add that directory to the user `PATH`:
+
+```powershell
+.\install.ps1 -AddToUserPath
+```
+
+The installer creates:
+
+- `kapsel.ps1`: PowerShell launcher.
+- `kapsel.cmd`: command launcher so `kapsel` works from a new terminal.
+
+Use a custom install directory when needed:
+
+```powershell
+.\install.ps1 -InstallDirectory "$HOME\Tools\Kapsel" -AddToUserPath
+```
+
+Open a new terminal after adding the directory to `PATH`, then run:
+
+```cmd
+kapsel
+```
+
+### Package Providers
+
+Kapsel delegates installation and update commands to external package managers:
+
+- `winget`: recommended default provider on modern Windows.
+- Chocolatey: optional fallback when installed and when the catalog entry defines a Chocolatey package id.
+
+The UI disables unavailable providers and skips selected applications that do not define a package id for the selected provider.
 
 ## Catalog
 
@@ -54,7 +126,7 @@ The catalog lives at:
 src/applications.json
 ```
 
-Each entry can define:
+Each entry uses this shape:
 
 ```json
 {
@@ -68,13 +140,23 @@ Each entry can define:
 }
 ```
 
-`winget` is preferred when available. If an entry has no `winget` value, the UI can use Chocolatey when `choco` is defined.
+Field guidance:
+
+- `category`: visible UI category.
+- `content`: display name shown in the app grid.
+- `description`: short user-facing description.
+- `link`: official project or vendor page.
+- `winget`: exact `winget` package id, or `na` when unavailable.
+- `choco`: Chocolatey package id, or `na` when unavailable.
+- `foss`: `true` when the application is Free and Open Source Software.
+
+`winget` is preferred when available. Chocolatey is used only when selected in the UI and the catalog entry defines a compatible package.
 
 ## What Is FOSS
 
 FOSS means `Free and Open Source Software`. In practice, these are applications whose source code is publicly available and can usually be studied, modified, and redistributed under their license.
 
-The `FOSS` filter in the interface shows only catalog entries marked with:
+The `FOSS only` filter shows catalog entries marked with:
 
 ```json
 "foss": true
@@ -92,6 +174,7 @@ src/
     ApplicationInfo.psm1
     ApplicationMain.psm1
     ApplicationSidebar.psm1
+    Assets.psm1
     Branding.psm1
     Gui.psm1
     UiTheme.psm1
@@ -99,28 +182,51 @@ tests/
   Applications.Tests.ps1
 ```
 
-- `Applications.psm1` reads and filters the catalog, detects package managers, and builds commands for `winget`/Chocolatey.
-- `ApplicationSidebar.psm1`, `ApplicationMain.psm1`, and `ApplicationGrid.psm1` build independent UI sections.
-- `UiTheme.psm1` centralizes colors, fonts, and shared controls.
-- `Branding.psm1` centralizes the name, version, and creator.
-- `Gui.psm1` composes the modules and wires events.
-- `Kapsel.ps1` is the entry point.
+Module responsibilities:
 
-## Tests
+- `Applications.psm1`: catalog loading, filtering, package manager detection, and package command construction.
+- `ApplicationGrid.psm1`: DataGridView creation, table binding, and selected application extraction.
+- `ApplicationInfo.psm1`: Activity, Features, and Changelog UI section.
+- `ApplicationMain.psm1`: main content layout, filters, stats, actions, and grid composition.
+- `ApplicationSidebar.psm1`: brand header, provider selector, app metadata, and category navigation.
+- `Assets.psm1`: internal asset path resolution.
+- `Branding.psm1`: product name, version, creator, and description.
+- `Gui.psm1`: composition root and event wiring.
+- `UiTheme.psm1`: colors, fonts, shared controls, and custom-drawn dark UI helpers.
+
+## Development
+
+Validate PowerShell syntax:
+
+```powershell
+$files = Get-ChildItem -Recurse -Include *.ps1,*.psm1
+foreach ($file in $files) {
+    $tokens = $null
+    $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref] $tokens, [ref] $errors) | Out-Null
+    if ($errors.Count -gt 0) { throw "$($file.FullName): $($errors[0].Message)" }
+}
+```
+
+Run tests:
 
 ```powershell
 Invoke-Pester .\tests
 ```
 
-Tests validate the catalog and package-manager argument generation. They do not install or update applications.
+Smoke-test the entrypoint:
 
-## Security
+```powershell
+.\kapsel.ps1 version
+```
 
-- Installing and updating requires explicit confirmation in the UI.
-- Kapsel does not download binaries directly.
-- Operations are delegated to `winget` or Chocolatey.
-- The catalog is local and maintainable by hand.
+## Contributing
 
+Read [CONTRIBUTING.md](../CONTRIBUTING.md) before opening a pull request or issue.
 
+Short version:
 
-
+- Open an issue first for bugs, design regressions, large catalog changes, or behavior changes.
+- Keep catalog entries accurate, official, and manually maintainable.
+- Keep UI changes inside the existing clean module boundaries.
+- Run syntax validation and Pester tests before submitting a pull request.

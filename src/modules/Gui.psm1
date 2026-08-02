@@ -13,7 +13,6 @@ Import-Module (Join-Path $PSScriptRoot 'UiTheme.psm1') -Force
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Creates the main shell layout with sidebar, main content, and status bar.
 function New-KapselShell {
     [CmdletBinding()]
     param(
@@ -64,7 +63,6 @@ function New-KapselStatusLabel {
     return $statusLabel
 }
 
-# Main function to show the Kapsel GUI, initialize state, and wire up events.
 function Show-KapselGui {
     [CmdletBinding()]
     param()
@@ -88,15 +86,31 @@ function Show-KapselGui {
     $form.Size = New-Object System.Drawing.Size(1480, 880)
     $form.BackColor = $colors.Window
     $form.Font = New-KapselFont -Size 9
-    $logoPath = Get-KapselLogoPath
-    if ($logoPath -and [System.IO.Path]::GetExtension($logoPath) -ieq '.ico') {
-        $form.Icon = New-Object System.Drawing.Icon($logoPath)
+
+    $windowIcon = New-KapselWindowIcon -ImagePath (Get-KapselBrandImagePath)
+    if ($null -ne $windowIcon) {
+        $form.Icon = $windowIcon
+        $form.Add_FormClosed({
+            if ($null -ne $windowIcon) {
+                $windowIcon.Dispose()
+            }
+        })
     }
 
     $sidebar = New-KapselSidebar -Metadata $metadata -Catalog $catalog -Categories $visibleCategories -DefaultCategory $defaultCategory -ManagerStatus $managerStatus
     $main = New-KapselMainContent -Metadata $metadata -Catalog $catalog -Categories $categories
     $statusLabel = New-KapselStatusLabel -Metadata $metadata
     $form.Controls.Add((New-KapselShell -Sidebar $sidebar.Panel -Main $main.Panel -Status $statusLabel))
+
+    $updateSelectionState = {
+        $stateColors = Get-KapselUiColors
+        $selectedCount = @(Get-KapselSelectedApplications -Grid $main.Grid -Catalog $catalog).Count
+        $main.SelectionLabel.Text = if ($selectedCount -eq 1) { '1 selected' } else { "$selectedCount selected" }
+        $main.InstallButton.Enabled = $selectedCount -gt 0
+        $main.UpgradeButton.Enabled = $selectedCount -gt 0
+        $main.InstallButton.BackColor = if ($selectedCount -gt 0) { $stateColors.AccentDark } else { $stateColors.SurfaceAlt }
+        $main.UpgradeButton.BackColor = if ($selectedCount -gt 0) { $stateColors.Warning } else { $stateColors.SurfaceAlt }
+    }
 
     $refreshGrid = {
         $category = [string] $selectedCategory.Value
@@ -105,6 +119,7 @@ function Show-KapselGui {
         $main.Title.Text = if ($category -eq 'All') { 'All applications' } else { $category }
         $main.Description.Text = "Showing $($filtered.Count) application(s) from $category."
         $statusLabel.Text = "Showing $($filtered.Count) application(s) in $category - $($metadata.Name) $($metadata.Version)"
+        & $updateSelectionState
     }
 
     $runPackageAction = {
@@ -116,9 +131,29 @@ function Show-KapselGui {
             return
         }
 
-        $provider = [string] $sidebar.ProviderCombo.SelectedItem
+        $provider = [string] $sidebar.ProviderState.Value
+        if ([string]::IsNullOrWhiteSpace($provider)) {
+            [System.Windows.Forms.MessageBox]::Show('No supported package provider is available on this system.', $metadata.Name) | Out-Null
+            return
+        }
+
+        $supported = @($selected | Where-Object { Test-KapselApplicationProviderSupport -Application $_ -Provider $provider })
+        $unsupported = @($selected | Where-Object { -not (Test-KapselApplicationProviderSupport -Application $_ -Provider $provider) })
+
+        if ($supported.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show("The selected application(s) do not define a $provider package id.", $metadata.Name) | Out-Null
+            return
+        }
+
+        $confirmationDetail = if ($unsupported.Count -gt 0) {
+            "$Action $($supported.Count) application(s) using $provider? $($unsupported.Count) selected item(s) will be skipped because they do not support $provider."
+        }
+        else {
+            "$Action $($supported.Count) application(s) using $provider?"
+        }
+
         $answer = [System.Windows.Forms.MessageBox]::Show(
-            "$Action $($selected.Count) application(s) using $provider?",
+            $confirmationDetail,
             'Confirm package action',
             [System.Windows.Forms.MessageBoxButtons]::YesNo,
             [System.Windows.Forms.MessageBoxIcon]::Question
@@ -133,7 +168,11 @@ function Show-KapselGui {
             $statusLabel.Text = "$Action running"
             [System.Windows.Forms.Application]::DoEvents()
 
-            foreach ($application in $selected) {
+            foreach ($application in $unsupported) {
+                Write-KapselLog -LogBox $main.LogBox -Message "Skipped $($application.Name): no $provider package id"
+            }
+
+            foreach ($application in $supported) {
                 Write-KapselLog -LogBox $main.LogBox -Message "$Action $($application.Name) with $provider"
                 $result = Invoke-KapselPackageAction -Action $Action -Application $application -Provider $provider
                 $state = if ($result.Succeeded) { 'OK' } else { "Exit $($result.ExitCode)" }
@@ -149,12 +188,20 @@ function Show-KapselGui {
         }
         finally {
             $form.Cursor = [System.Windows.Forms.Cursors]::Default
+            & $updateSelectionState
         }
     }
 
     $main.RefreshButton.Add_Click($refreshGrid)
     $main.SearchBox.Add_TextChanged($refreshGrid)
     $main.FossOnly.Add_CheckedChanged($refreshGrid)
+    $main.Grid.Add_CurrentCellDirtyStateChanged({
+        if ($main.Grid.IsCurrentCellDirty) {
+            $main.Grid.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
+        }
+    })
+    $main.Grid.Add_CellValueChanged({ & $updateSelectionState })
+
     $sidebar.CategoryTree.Add_AfterSelect({
         if ($sidebar.CategoryTree.SelectedNode -ne $null -and $sidebar.CategoryTree.SelectedNode.Tag -ne $null) {
             $selectedCategory.Value = [string] $sidebar.CategoryTree.SelectedNode.Tag
@@ -168,6 +215,7 @@ function Show-KapselGui {
                 $row.Cells['Selected'].Value = $true
             }
         }
+        & $updateSelectionState
     })
 
     $main.ClearButton.Add_Click({
@@ -176,6 +224,7 @@ function Show-KapselGui {
                 $row.Cells['Selected'].Value = $false
             }
         }
+        & $updateSelectionState
     })
 
     $main.InstallButton.Add_Click({ & $runPackageAction 'Install' })
@@ -203,4 +252,5 @@ function Show-KapselGui {
 }
 
 Export-ModuleMember -Function 'Show-KapselGui'
+
 

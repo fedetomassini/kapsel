@@ -157,6 +157,24 @@ function Get-KapselApplicationCategory {
     )
 }
 
+function Test-KapselApplicationProviderSupport {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object] $Application,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('winget', 'choco')]
+        [string] $Provider
+    )
+
+    if ($Provider -eq 'winget') {
+        return -not [string]::IsNullOrWhiteSpace($Application.WingetId)
+    }
+
+    return -not [string]::IsNullOrWhiteSpace($Application.ChocoId)
+}
+
 # Constructs the command-line arguments for installing or upgrading an application using the specified package manager.
 function New-KapselPackageArgument {
     [CmdletBinding()]
@@ -174,7 +192,7 @@ function New-KapselPackageArgument {
     )
 
     if ($Provider -eq 'winget') {
-        if ([string]::IsNullOrWhiteSpace($Application.WingetId)) {
+        if (-not (Test-KapselApplicationProviderSupport -Application $Application -Provider $Provider)) {
             throw "Application '$($Application.Name)' does not define a winget package id."
         }
 
@@ -189,7 +207,7 @@ function New-KapselPackageArgument {
         )
     }
 
-    if ([string]::IsNullOrWhiteSpace($Application.ChocoId)) {
+    if (-not (Test-KapselApplicationProviderSupport -Application $Application -Provider $Provider)) {
         throw "Application '$($Application.Name)' does not define a Chocolatey package id."
     }
 
@@ -278,6 +296,7 @@ Export-ModuleMember -Function @(
     'Get-KapselApplicationCatalog',
     'Search-KapselApplicationCatalog',
     'Get-KapselApplicationCategory',
+    'Test-KapselApplicationProviderSupport',
     'New-KapselPackageArgument',
     'Invoke-KapselPackageAction',
     'Invoke-KapselPackageBatch'

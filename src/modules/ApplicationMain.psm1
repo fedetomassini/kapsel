@@ -93,6 +93,7 @@ function New-KapselMainContent {
     $searchBox.ForeColor = $colors.Text
     $searchBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $searchBox.Font = New-KapselFont -Size 9
+    Set-KapselTextBoxCueBanner -TextBox $searchBox -Text 'Search by app, category, package id...'
 
     $fossOnly = New-Object System.Windows.Forms.CheckBox
     $fossOnly.Text = 'FOSS only'
@@ -121,7 +122,14 @@ function New-KapselMainContent {
     $installButton = New-KapselButton -Text 'Install selected' -BackColor $colors.AccentDark -Width 144
     $upgradeButton = New-KapselButton -Text 'Update selected' -BackColor $colors.Warning -Width 144
     $openLinkButton = New-KapselButton -Text 'Open website' -Width 132
-    $actionsPanel.Controls.AddRange(@($selectAllButton, $clearButton, $installButton, $upgradeButton, $openLinkButton))
+
+    $selectionLabel = New-KapselTextLabel -Text '0 selected' -Size 8.5 -Color $colors.Muted -Height 36 -Dock ([System.Windows.Forms.DockStyle]::None)
+    $selectionLabel.Width = 132
+    $selectionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $selectionLabel.BackColor = $colors.Surface
+    $selectionLabel.Margin = New-Object System.Windows.Forms.Padding(6, 0, 0, 0)
+
+    $actionsPanel.Controls.AddRange(@($selectAllButton, $clearButton, $installButton, $upgradeButton, $openLinkButton, $selectionLabel))
 
     $grid = New-KapselApplicationGrid
     $infoSection = New-KapselInfoSection -Metadata $Metadata
@@ -145,9 +153,11 @@ function New-KapselMainContent {
         InstallButton   = $installButton
         UpgradeButton   = $upgradeButton
         OpenLinkButton  = $openLinkButton
+        SelectionLabel  = $selectionLabel
         Grid            = $grid
         LogBox          = $infoSection.LogBox
     }
 }
 
 Export-ModuleMember -Function 'New-KapselMainContent'
+

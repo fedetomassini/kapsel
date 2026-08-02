@@ -19,7 +19,7 @@ function Get-KapselFeatureLines {
         'FOSS-only filtering for open-source software.',
         'Batch install and update through winget or Chocolatey.',
         'Explicit confirmation before package operations.',
-        'Package manager availability shown inside the UI.',
+        'Unavailable package providers are disabled inside the UI.',
         'Official website shortcut for the selected application.'
     )
 }
@@ -36,7 +36,7 @@ function Get-KapselChangelogLines {
         '',
         "Version $($Metadata.Version)",
         'Modernized the main application layout.',
-        'Added logo support through src/images.',
+        'Refined the application shell and visual structure.',
         'Replaced visual text fields with non-selectable labels.',
         'Improved activity, features, and changelog sections.',
         'Refined grid density, action controls, and package workflow feedback.'
@@ -76,6 +76,7 @@ function New-KapselInfoSection {
     $tabs.Appearance = [System.Windows.Forms.TabAppearance]::FlatButtons
     $tabs.ItemSize = New-Object System.Drawing.Size(104, 28)
     $tabs.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
+    Set-KapselDarkTabControl -TabControl $tabs
 
     $activityLog = New-KapselVisualTextPanel
     $featuresPanel = New-KapselVisualTextPanel -Lines (Get-KapselFeatureLines)
@@ -98,3 +99,4 @@ Export-ModuleMember -Function @(
     'Get-KapselFeatureLines',
     'Get-KapselChangelogLines'
 )
+
