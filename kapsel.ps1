@@ -8,7 +8,32 @@ param(
     [string[]] $Arguments
 )
 
-$entryPoint = Join-Path $PSScriptRoot 'src\Kapsel.ps1'
+function Get-KapselLauncherRoot {
+    [CmdletBinding()]
+    param()
+
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        return $PSScriptRoot
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($PSCommandPath)) {
+        return Split-Path -Parent $PSCommandPath
+    }
+
+    $processPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    if (-not [string]::IsNullOrWhiteSpace($processPath)) {
+        return Split-Path -Parent $processPath
+    }
+
+    return (Get-Location).Path
+}
+
+$launcherRoot = Get-KapselLauncherRoot
+$entryPoint = Join-Path $launcherRoot 'src\Kapsel.ps1'
+
+if (-not (Test-Path -LiteralPath $entryPoint)) {
+    throw "Kapsel entry point was not found: $entryPoint"
+}
 
 if ($null -eq $Arguments -or $Arguments.Count -eq 0) {
     & $entryPoint

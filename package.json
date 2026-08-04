@@ -1,0 +1,30 @@
+{
+	"name": "kapsel",
+	"version": "1.1.5",
+	"private": true,
+	"description": "Windows application installer and updater built with PowerShell Windows Forms.",
+	"scripts": {
+		"start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./kapsel.ps1",
+		"app": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./kapsel.ps1",
+		"help": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./kapsel.ps1 help",
+		"version": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./kapsel.ps1 version",
+		"validate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Validate-PowerShell.ps1",
+		"test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-Pester ./tests\"",
+		"build": "npm run build:check",
+		"build:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -SkipExecutable",
+		"build:release": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -InstallBuildDependency",
+		"release": "npm run validate && npm test && npm run build:release",
+		"clean": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"if (Test-Path ./dist) { Remove-Item -LiteralPath ./dist -Recurse -Force }\""
+	},
+	"keywords": [
+		"windows",
+		"powershell",
+		"winget",
+		"chocolatey",
+		"installer"
+	],
+	"author": "Federico Tomassini",
+	"engines": {
+		"node": ">=24"
+	}
+}

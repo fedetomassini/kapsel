@@ -1,12 +1,16 @@
 ﻿# Kapsel
 
+<p align="center">
+  <img src="assets/kapsel.png" alt="Kapsel application preview" width="860">
+</p>
+
 Kapsel is a native Windows Forms application written in PowerShell for installing and updating curated Windows applications from a local catalog.
 
 It is designed as a practical package launcher: choose applications, pick a provider, confirm the action, and let `winget` or Chocolatey handle the installation.
 
 ## Overview
 
-- Version: `1.1`
+- Version: `1.1.5`
 - Creator: Federico Tomassini
 - Platform: Windows 10/11
 - Runtime: PowerShell 5.1 or higher
@@ -118,6 +122,33 @@ Kapsel delegates installation and update commands to external package managers:
 
 The UI disables unavailable providers and skips selected applications that do not define a package id for the selected provider.
 
+## Release Builds
+
+Kapsel can be packaged for GitHub Releases with:
+
+```powershell
+npm run build:release
+```
+
+The build creates:
+
+- `dist/releases/Kapsel-<version>-windows/`: unpacked release directory.
+- `dist/releases/Kapsel-<version>-windows.zip`: archive ready to attach to a GitHub Release.
+- `Kapsel.exe`: Windows executable generated from `kapsel.ps1`.
+
+The release archive includes the executable, script launchers, `src/`, `assets/`, and README content. Distribute the generated `.zip`, not the `.exe` alone.
+
+## Release Automation
+
+GitHub Actions creates releases from version tags. Update the app version, commit the change, then push a matching tag:
+
+```powershell
+git tag v1.1.5
+git push origin v1.1.5
+```
+
+The release workflow validates that the tag matches `package.json`, runs validation and tests, builds the Windows release package, and publishes `Kapsel-<version>-windows.zip` to the GitHub Release.
+
 ## Catalog
 
 The catalog lives at:
@@ -195,6 +226,25 @@ Module responsibilities:
 - `UiTheme.psm1`: colors, fonts, shared controls, and custom-drawn dark UI helpers.
 
 ## Development
+
+Common commands are exposed through `package.json`:
+
+```powershell
+npm start
+npm run validate
+npm test
+npm run build:check
+npm run build:release
+```
+
+Command purpose:
+
+- `npm start`: opens the Kapsel UI.
+- `npm run validate`: validates PowerShell syntax.
+- `npm test`: runs the Pester test suite.
+- `npm run build:check`: validates release packaging without compiling the executable.
+- `npm run build:release`: builds the full release package with `Kapsel.exe`.
+- `npm run release`: runs validation, tests, and full release packaging.
 
 Validate PowerShell syntax:
 

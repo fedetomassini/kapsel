@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build and publish release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Resolve release version
+        id: version
+        shell: pwsh
+        run: |
+          $package = Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json
+          $version = [string] $package.version
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw 'package.json does not define a version.'
+          }
+
+          Import-Module ./src/modules/Branding.psm1 -Force
+          $metadata = Get-KapselMetadata
+          if ([string] $metadata.Version -ne $version) {
+            throw "package.json version '$version' does not match app metadata version '$($metadata.Version)'."
+          }
+
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+            if ($tagVersion -ne $version) {
+              throw "Tag version '$tagVersion' does not match package.json version '$version'."
+            }
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Validate PowerShell syntax
+        run: npm run validate
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build release package
+        run: npm run build:release
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $archive = Join-Path $PWD "dist/releases/Kapsel-$env:RELEASE_VERSION-windows.zip"
+          if (-not (Test-Path -LiteralPath $archive)) {
+            throw "Release archive not found: $archive"
+          }
+
+          $notes = @"
+          Kapsel $env:RELEASE_VERSION
+
+          Download the Windows release archive and extract it before running Kapsel.exe.
+          "@
+
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $archive --clobber
+          }
+          else {
+            gh release create $env:RELEASE_TAG $archive --title "Kapsel $env:RELEASE_VERSION" --notes $notes --latest
+          }

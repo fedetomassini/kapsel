@@ -4,6 +4,12 @@ TestResults/
 *.coveragexml
 *.ps1xml
 
+# Build artifacts
+dist/
+build/
+*.exe
+*.zip
+
 # Local/editor files
 .vscode/
 .idea/
