@@ -1,35 +1,31 @@
-﻿# Asset path helpers for Kapsel.
+# Optional image and window-icon adapter.
 Set-StrictMode -Version Latest
 
 Add-Type -AssemblyName System.Drawing
 
-function Get-KapselAssetsPath {
+function Get-KapselProjectRoot {
     [CmdletBinding()]
     param()
 
-    return Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'assets'
+    return Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 }
 
 function Get-KapselBrandImagePath {
     [CmdletBinding()]
     param()
 
-    $path = Join-Path (Get-KapselAssetsPath) 'logo.png'
-    if (Test-Path -LiteralPath $path) {
+    $path = Join-Path (Get-KapselProjectRoot) 'assets\logo.png'
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
         return $path
     }
-
     return $null
 }
 
 function New-KapselWindowIcon {
     [CmdletBinding()]
-    param(
-        [AllowNull()]
-        [string] $ImagePath
-    )
+    param([AllowNull()] [string] $ImagePath)
 
-    if ([string]::IsNullOrWhiteSpace($ImagePath) -or -not (Test-Path -LiteralPath $ImagePath)) {
+    if ([string]::IsNullOrWhiteSpace($ImagePath) -or -not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
         return $null
     }
 
@@ -48,32 +44,24 @@ namespace Kapsel {
     }
 
     $bitmap = $null
+    $sourceIcon = $null
     $handle = [IntPtr]::Zero
-    $icon = $null
 
     try {
         $bitmap = New-Object System.Drawing.Bitmap($ImagePath)
         $handle = $bitmap.GetHicon()
-        $icon = [System.Drawing.Icon]::FromHandle($handle)
-        return $icon.Clone()
+        $sourceIcon = [System.Drawing.Icon]::FromHandle($handle)
+        return $sourceIcon.Clone()
     }
     finally {
-        if ($null -ne $icon) {
-            $icon.Dispose()
-        }
-
-        if ($handle -ne [IntPtr]::Zero) {
-            [Kapsel.AssetNativeMethods]::DestroyIcon($handle) | Out-Null
-        }
-
-        if ($null -ne $bitmap) {
-            $bitmap.Dispose()
-        }
+        if ($null -ne $sourceIcon) { $sourceIcon.Dispose() }
+        if ($handle -ne [IntPtr]::Zero) { [Kapsel.AssetNativeMethods]::DestroyIcon($handle) | Out-Null }
+        if ($null -ne $bitmap) { $bitmap.Dispose() }
     }
 }
 
 Export-ModuleMember -Function @(
-    'Get-KapselAssetsPath',
+    'Get-KapselProjectRoot',
     'Get-KapselBrandImagePath',
     'New-KapselWindowIcon'
 )

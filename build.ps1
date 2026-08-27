@@ -16,7 +16,7 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 $launcherPath = Join-Path $projectRoot 'kapsel.ps1'
 $sourcePath = Join-Path $projectRoot 'src'
 $assetsPath = Join-Path $projectRoot 'assets'
-$metadataModule = Join-Path $sourcePath 'modules\Branding.psm1'
+$metadataModule = Join-Path $sourcePath 'modules\Shared\ProductMetadata.psm1'
 
 if (-not (Test-Path -LiteralPath $launcherPath)) {
     throw "Launcher not found: $launcherPath"
@@ -31,7 +31,7 @@ if (-not (Test-Path -LiteralPath $metadataModule)) {
 }
 
 Import-Module $metadataModule -Force
-$metadata = Get-KapselMetadata
+$metadata = Get-KapselProductMetadata
 $version = [string] $metadata.Version
 $packageName = '{0}-{1}-windows' -f $metadata.Name, $version
 $releaseRoot = Join-Path (Join-Path $OutputDirectory 'releases') $packageName
@@ -120,6 +120,11 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'kapsel.cmd') -Destination (Join-
 $readmePath = Join-Path $projectRoot '.github\README.md'
 if (Test-Path -LiteralPath $readmePath) {
     Copy-Item -LiteralPath $readmePath -Destination (Join-Path $releaseRoot 'README.md') -Force
+}
+
+$catalogDocumentPath = Join-Path $projectRoot '.github\CATALOG.md'
+if (Test-Path -LiteralPath $catalogDocumentPath) {
+    Copy-Item -LiteralPath $catalogDocumentPath -Destination (Join-Path $releaseRoot 'CATALOG.md') -Force
 }
 
 if (-not $SkipExecutable) {

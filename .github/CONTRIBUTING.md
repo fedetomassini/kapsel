@@ -1,167 +1,169 @@
-﻿# Contributing to Kapsel
+# Contributing to Kapsel
 
-Thanks for taking the time to improve Kapsel. This project is intentionally small, native, and manually maintainable, so contributions should keep the architecture clear and the catalog trustworthy.
+Kapsel is intentionally focused and manually maintainable. Contributions should preserve its
+catalog-installer purpose, clean dependency direction, and predictable package workflow.
 
-## Before You Start
+## Before Starting
 
-Open an issue before working on:
+Read:
 
-- UI or UX redesigns.
-- Changes to install or update behavior.
-- New package manager support.
-- Large catalog additions or reorganizations.
-- Anything that may affect existing workflows.
+- [README.md](./README.md) for product behavior and local commands.
 
-Small fixes, typo corrections, and clearly safe catalog additions can go straight to a pull request.
+Open an issue before implementing:
 
-## Reporting Issues
+- A new package provider.
+- A catalog schema change.
+- A major interface redesign.
+- A change to install, update, elevation, or process behavior.
+- A large catalog addition or category reorganization.
+- A feature that expands Kapsel beyond curated application installation and updates.
 
-Use `.github/ISSUE_TEMPLATE.md` when opening an issue.
+Small documentation fixes and verified catalog corrections may go directly to a pull request.
 
-Include:
+## Issues
 
-- What happened.
-- What you expected to happen.
-- Steps to reproduce.
-- Windows version.
-- PowerShell version.
-- Whether `winget` and Chocolatey are installed.
-- Screenshots for visual issues.
-- Error output when available.
+Choose the matching GitHub issue form:
 
-For package issues, include the application key from `src/applications.json` and the failing provider (`winget` or `choco`).
+- Bug report for incorrect behavior or a regression.
+- Feature request for product changes.
+- Catalog request for application additions or metadata corrections.
 
-## Pull Request Workflow
+For package failures, include the application key, selected provider, package identifier, Kapsel
+version, Windows version, and the visible Activity result. Do not include credentials or unrelated
+environment data.
 
-1. Create a feature branch from the latest main branch.
-2. Keep the change focused on one purpose.
-3. Follow the existing module boundaries.
-4. Update docs when behavior, UI, catalog shape, or usage changes.
-5. Run local validation.
-6. Open a pull request using `.github/PULL_REQUEST_TEMPLATE.md`.
+## Development Setup
 
-Suggested branch names:
+Requirements:
+
+- Windows PowerShell 5.1 or newer.
+- `winget` or Chocolatey for manual package-operation testing.
+- Node.js 24 or newer for npm aliases.
+- Pester available to Windows PowerShell.
+
+Clone the repository, create a branch, and validate the baseline:
+
+```powershell
+npm run validate
+npm test
+npm run build:check
+```
+
+Run the application:
+
+```powershell
+npm run dev
+```
+
+## Branches and Commits
+
+Use a short branch name describing one purpose:
 
 ```txt
-fix/category-selection
-feat/catalog-devtools
-ui/refine-main-layout
-docs/contributing-guide
+fix/catalog-search
+feat/package-state
+ui/context-panel
+docs/release-process
+catalog/add-development-tools
 ```
 
-## Architecture Guidelines
+Use conventional, scoped commit messages:
 
-Keep the clean separation between modules:
-
-- `Applications.psm1`: catalog and package-manager operations only.
-- `ApplicationGrid.psm1`: grid/table behavior only.
-- `ApplicationInfo.psm1`: Activity, Features, and Changelog section only.
-- `ApplicationMain.psm1`: main layout composition only.
-- `ApplicationSidebar.psm1`: sidebar layout and category/provider controls only.
-- `Assets.psm1`: asset path resolution only.
-- `Branding.psm1`: product metadata only.
-- `Gui.psm1`: app composition and event wiring only.
-- `UiTheme.psm1`: shared visual primitives and theme helpers only.
-
-Avoid putting business logic inside UI construction modules when it belongs in `Applications.psm1`.
-
-## UI Guidelines
-
-- Keep the app dark, compact, and utility-focused.
-- Do not use editable text fields for visual-only descriptions or documentation blocks.
-- Avoid text overlap at the minimum supported window size.
-- Prefer shared helpers from `UiTheme.psm1` over one-off styling.
-- Keep controls aligned and predictable.
-- Validate that the app opens after changing WinForms layout code.
-
-## Catalog Guidelines
-
-Catalog entries live in `src/applications.json`.
-
-Every entry must include:
-
-```json
-{
-  "category": "Utilities",
-  "content": "Application Name",
-  "description": "Short user-facing description.",
-  "link": "https://official-project-page.example/",
-  "winget": "Publisher.Package",
-  "choco": "package-name",
-  "foss": true
-}
+```txt
+fix(domain): treat search characters literally
+feat(catalog): add verified media tools
+refactor(ui): separate context view composition
+docs: define release rollback procedure
 ```
 
-Rules:
+Do not mix catalog expansion, UI redesign, and architecture changes in one pull request unless they
+are inseparable parts of one approved milestone.
 
-- Use a unique, lowercase, stable key when possible.
-- Use the official website or official repository for `link`.
-- Prefer exact `winget` ids from official manifests.
+## Architecture Contributions
+
+Dependency direction is mandatory:
+
+```txt
+Presentation -> Application -> Domain
+Composition root -> Infrastructure
+```
+
+- Put deterministic catalog and command rules in Domain.
+- Put user-facing use cases and orchestration in Application.
+- Put files, processes, command discovery, and image conversion in Infrastructure.
+- Put controls and visual state in Presentation.
+- Wire concrete adapters only in the composition root.
+- Add Shared code only when multiple entry points need one stable product contract.
+
+Do not move business behavior into an event handler to avoid creating the correct application
+function.
+
+## Catalog Contributions
+
+Each entry must follow the catalog contract in [README.md](./README.md#catalog-contract). Before
+submission:
+
+- Use a unique stable key.
+- Use an official application or publisher page.
+- Verify the exact `winget` identifier.
+- Verify the exact Chocolatey identifier when supplied.
 - Use `na` when a provider is unavailable.
-- Keep descriptions concise and factual.
-- Set `foss` only when the application is Free and Open Source Software.
-- Do not add abandoned, unsafe, or unclear packages without opening an issue first.
+- Write a concise factual description.
+- Mark FOSS only when the license qualifies.
+- Confirm the entry is not already present under another key.
+- Keep changes alphabetically or categorically coherent with nearby entries when practical.
 
-## Validation
+For larger additions, explain the selection criteria in the issue or pull request.
 
-Run syntax validation:
-
-```powershell
-$files = Get-ChildItem -Recurse -Include *.ps1,*.psm1
-foreach ($file in $files) {
-    $tokens = $null
-    $errors = $null
-    [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref] $tokens, [ref] $errors) | Out-Null
-    if ($errors.Count -gt 0) { throw "$($file.FullName): $($errors[0].Message)" }
-}
-```
-
-Run tests:
+Regenerate the public application list after every catalog change:
 
 ```powershell
-Invoke-Pester .\tests
+npm run docs:catalog
 ```
 
-Check the entrypoint:
+## UI Contributions
 
-```powershell
-.\kapsel.ps1 version
-```
+- Preserve the compact three-pane layout.
+- Preserve the custom borderless window bar and edge resizing behavior.
+- Use theme primitives and existing spacing.
+- Keep descriptive text non-editable and non-selectable.
+- Preserve the minimum `1180 x 700` layout.
+- Test with and without JetBrains Mono installed when changing text metrics.
+- Verify provider buttons, category navigation, search, selection, and action disabled states.
+- Include a screenshot in the pull request.
 
-For UI changes, also launch the app and inspect the main workflows:
+## Tests
 
-```powershell
-.\kapsel.ps1
-```
+Add tests at the owning boundary:
 
-Verify:
+- Domain behavior in `tests/Domain`.
+- Use-case behavior in `tests/Application`.
+- External adapter behavior in `tests/Infrastructure`.
+- Dependency constraints in `tests/Architecture.Tests.ps1`.
 
-- The window opens.
-- Applications are visible.
-- Categories filter correctly.
-- Search works.
-- `FOSS only` works.
-- Selection count updates.
-- Install/update buttons are disabled when nothing is selected.
+Automated tests must not install, update, or remove software. Inject a process adapter when testing
+package orchestration.
 
 ## Pull Request Checklist
 
-Before opening a PR:
+Before opening a pull request:
 
-- The change is scoped and easy to review.
-- PowerShell syntax validation passes.
+- The change has one clear purpose.
+- Syntax validation passes.
 - Pester tests pass.
-- UI changes were manually smoke-tested.
-- Docs were updated when needed.
-- New catalog entries use official links and valid package ids.
-- No unrelated files were reformatted or changed.
+- Build check passes.
+- Generated catalog check passes.
+- UI changes were opened and manually smoke-tested.
+- New behavior includes proportional tests.
+- Public documentation is accurate.
+- Catalog identifiers and links were verified.
+- No generated `dist` files, credentials, or unrelated formatting are included.
 
-## Commit Messages
+Use the repository pull-request template and link the relevant issue with `Closes #<number>` when
+applicable.
 
-Use short, clear commit messages:
+## Review Expectations
 
-```txt
-feat(catalog): add development tools
-fix(ui): keep action buttons disabled without selection
-docs: add contribution guide
-```
+Review prioritizes correctness, package safety, dependency direction, maintainability, UI behavior,
+and catalog accuracy. A working feature may still require changes if it couples layers or makes
+future catalog maintenance harder.

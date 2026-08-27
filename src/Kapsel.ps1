@@ -7,8 +7,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $moduleRoot = Join-Path $PSScriptRoot 'modules'
-Import-Module (Join-Path $moduleRoot 'Branding.psm1') -Force
-$metadata = Get-KapselMetadata
+Import-Module (Join-Path $moduleRoot 'Shared\ProductMetadata.psm1') -Force
+$metadata = Get-KapselProductMetadata
 
 function Show-KapselHelp {
     @'
@@ -31,8 +31,8 @@ try {
 
     switch ($Command.ToLowerInvariant()) {
         { $_ -in @('ui', 'app', 'apps') } {
-            Import-Module (Join-Path $moduleRoot 'Gui.psm1') -Force
-            Gui\Show-KapselGui
+            Import-Module (Join-Path $moduleRoot 'Presentation\WinForms\Gui.psm1') -Force
+            Gui\Show-KapselGui -Metadata $metadata
         }
         { $_ -in @('help', '--help', '-h') } {
             Show-KapselHelp

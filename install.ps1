@@ -1,7 +1,4 @@
-# Requires -RunAsAdministrator
-# This script installs Kapsel launchers to a specified directory and optionally adds that directory to the user's PATH environment variable.
-# Usage:
-#  .\install.ps1 -InstallDirectory "C:\MyTools" -AddToUserPath
+# Installs Kapsel launchers and optionally adds their directory to the current user's PATH.
 
 [CmdletBinding(SupportsShouldProcess)]
 param(

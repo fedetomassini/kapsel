@@ -1,0 +1,75 @@
+name: Catalog request
+description: Add an application or correct catalog metadata.
+title: "[Catalog]: "
+labels:
+  - catalog
+body:
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request type
+      options:
+        - Add an application
+        - Correct an application
+        - Remove an unavailable application
+        - Reclassify a category or FOSS value
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Application name
+    validations:
+      required: true
+  - type: input
+    id: official-link
+    attributes:
+      label: Official website or repository
+    validations:
+      required: true
+  - type: input
+    id: category
+    attributes:
+      label: Proposed category
+    validations:
+      required: true
+  - type: input
+    id: winget
+    attributes:
+      label: winget identifier
+      placeholder: Publisher.Package or na
+    validations:
+      required: true
+  - type: input
+    id: choco
+    attributes:
+      label: Chocolatey identifier
+      placeholder: package-name or na
+    validations:
+      required: true
+  - type: dropdown
+    id: foss
+    attributes:
+      label: FOSS
+      options:
+        - "Yes"
+        - "No"
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: Explain how the identifiers, official link, and FOSS status were checked.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the current catalog for duplicates.
+          required: true
+        - label: The link is controlled by the project or publisher.
+          required: true

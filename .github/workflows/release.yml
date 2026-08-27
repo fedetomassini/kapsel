@@ -4,15 +4,21 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-release:
     name: Build and publish release
     runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -32,18 +38,22 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($version)) {
             throw 'package.json does not define a version.'
           }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "package.json version '$version' is not semantic version x.y.z."
+          }
 
-          Import-Module ./src/modules/Branding.psm1 -Force
-          $metadata = Get-KapselMetadata
+          Import-Module ./src/modules/Shared/ProductMetadata.psm1 -Force
+          $metadata = Get-KapselProductMetadata
           if ([string] $metadata.Version -ne $version) {
             throw "package.json version '$version' does not match app metadata version '$($metadata.Version)'."
           }
 
-          if ($env:GITHUB_REF_TYPE -eq 'tag') {
-            $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
-            if ($tagVersion -ne $version) {
-              throw "Tag version '$tagVersion' does not match package.json version '$version'."
-            }
+          if ($env:GITHUB_REF_NAME -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Release tag '$env:GITHUB_REF_NAME' is not semantic version vX.Y.Z."
+          }
+          $tagVersion = $env:GITHUB_REF_NAME.Substring(1)
+          if ($tagVersion -ne $version) {
+            throw "Tag version '$tagVersion' does not match package.json version '$version'."
           }
 
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -54,6 +64,9 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Verify generated application catalog
+        run: npm run docs:catalog:check
 
       - name: Build release package
         run: npm run build:release
@@ -70,16 +83,17 @@ jobs:
             throw "Release archive not found: $archive"
           }
 
-          $notes = @"
-          Kapsel $env:RELEASE_VERSION
-
-          Download the Windows release archive and extract it before running Kapsel.exe.
-          "@
-
           gh release view $env:RELEASE_TAG *> $null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $env:RELEASE_TAG $archive --clobber
           }
           else {
-            gh release create $env:RELEASE_TAG $archive --title "Kapsel $env:RELEASE_VERSION" --notes $notes --latest
+            gh release create $env:RELEASE_TAG $archive `
+              --verify-tag `
+              --title "Kapsel $env:RELEASE_VERSION" `
+              --generate-notes `
+              --latest
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub release publication failed with exit code $LASTEXITCODE."
           }

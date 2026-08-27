@@ -1,7 +1,5 @@
-# Requires -RunAsAdministrator
-# This script serves as the entry point for the Kapsel application. 
-# It forwards any provided arguments to the main script located in the 'src' directory. 
-# If no arguments are provided, it simply runs the main script without any parameters.
+# Repository and packaged-executable launcher for Kapsel.
+# The runtime root fallback keeps ps2exe builds independent from PowerShell's $PSScriptRoot behavior.
 
 param(
     [Parameter(ValueFromRemainingArguments = $true)]

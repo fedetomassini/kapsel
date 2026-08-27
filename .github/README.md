@@ -1,282 +1,281 @@
-﻿# Kapsel
+# Kapsel
 
 <p align="center">
-  <img src="assets/kapsel.png" alt="Kapsel application preview" width="860">
+  <img src="assets/kapsel.png" alt="Kapsel application catalog" width="860">
 </p>
 
-Kapsel is a native Windows Forms application written in PowerShell for installing and updating curated Windows applications from a local catalog.
+Kapsel is a native Windows application for installing and updating a curated software catalog
+through `winget` or Chocolatey. It is written in PowerShell and Windows Forms, requires no web
+runtime, and keeps package operations explicit and reviewable.
 
-It is designed as a practical package launcher: choose applications, pick a provider, confirm the action, and let `winget` or Chocolatey handle the installation.
+Version `1.2.0` rebuilds the project around a compact three-pane desktop shell, application-owned
+contracts, isolated external adapters, and a custom window frame that remains consistent across
+Windows themes.
 
-## Overview
+## What Kapsel Does
 
-- Version: `1.1.5`
-- Creator: Federico Tomassini
-- Platform: Windows 10/11
-- Runtime: PowerShell 5.1 or higher
-- Catalog size: 254 applications
-- Catalog source: `src/applications.json`
+- Loads a curated catalog of Windows applications from `src/applications.json`.
+- Searches by application name, key, category, description, or package identifier.
+- Filters applications by category and Free and Open Source Software status.
+- Preserves selections while the user searches or changes category.
+- Installs or updates multiple applications after explicit confirmation.
+- Uses `winget` or Chocolatey only when the provider is installed and supported by the package.
+- Skips unsupported selections and records the result in the activity panel.
+- Opens the official website for the focused application.
+- Displays product features, release changes, provider state, and operation activity in the UI.
 
-The name comes from `capsule`/`kapsel`: a compact container for a curated set of applications that can be installed or updated from one interface.
+Kapsel does not download arbitrary URLs, maintain its own package repository, or bypass package
+manager security controls. `winget` and Chocolatey remain responsible for package resolution,
+download, validation, installation, and updates.
 
-## Features
+## Product Journey
 
-- Native Windows Forms interface.
-- Dark, compact, utility-focused layout.
-- Search by application name, key, description, `winget` id, or Chocolatey id.
-- Category navigation for focused discovery.
-- FOSS-only filter for open-source software.
-- Multi-select install and update workflows.
-- Provider selection between `winget` and Chocolatey.
-- Unavailable package providers are disabled in the UI.
-- Activity log, Features, and Changelog tabs.
-- Official website shortcut for the selected application.
+```txt
+Open Kapsel
+  -> choose a package provider
+  -> find and select applications
+  -> choose Install or Update
+  -> review the confirmation
+  -> Kapsel executes supported package commands
+  -> inspect the result in Activity
+```
+
+## Interface
+
+The desktop shell follows a compact three-pane model:
+
+| Surface | Responsibility |
+| --- | --- |
+| Window bar | Application identity, window drag area, minimize, maximize, restore, and close. |
+| Left navigation | Product identity, active package provider, categories, and version context. |
+| Catalog workspace | Search, FOSS filtering, catalog metrics, selection, install, and update actions. |
+| Context panel | Activity, current features, and release changes. |
+| Status bar | Visible catalog count and package-operation status. |
+
+All descriptive and informational text is rendered with labels. Only controls that accept user
+input, such as search and checkboxes, are editable or selectable.
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+F` | Focus catalog search. |
+| `Escape` | Clear a non-empty search. |
 
 ## Requirements
 
-- Windows 10/11.
-- PowerShell 5.1 or higher.
+- Windows 10 or Windows 11.
+- Windows PowerShell 5.1 or newer.
 - `winget` recommended.
 - Chocolatey optional.
-- Pester optional for tests.
+- JetBrains Mono recommended; Kapsel falls back to Segoe UI when unavailable.
+- Node.js 24 or newer only for repository command aliases and release builds.
+- Pester for local tests.
 
-## Usage
+## Run Kapsel
 
-From the project root:
+From PowerShell:
 
 ```powershell
 .\kapsel.ps1
 ```
 
-From `cmd.exe` or Explorer:
+From Command Prompt or Explorer:
 
 ```cmd
 kapsel.cmd
 ```
 
-Show version metadata:
+When Windows associates `.ps1` files with an editor, use `kapsel.cmd` or run the script from a
+terminal. The wrapper starts PowerShell with a process-scoped execution-policy bypass.
+
+Available commands:
 
 ```powershell
+.\kapsel.ps1 ui
+.\kapsel.ps1 help
 .\kapsel.ps1 version
 ```
 
-Show CLI help:
+Repository aliases:
 
 ```powershell
-.\kapsel.ps1 help
+npm start
+npm run dev
+npm run app
+npm run help
+npm run version
 ```
 
-## Installation
+`start`, `dev`, and `app` all open the local Windows Forms application through the same
+repository-relative STA launcher.
 
-### Run Without Installing
+## Install Launchers
 
-Use this mode while developing or testing from a cloned repository:
-
-```powershell
-.\kapsel.ps1
-```
-
-If PowerShell blocks script execution, run Kapsel from a trusted terminal with a process-scoped execution policy:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\kapsel.ps1
-```
-
-On Windows, double-clicking a `.ps1` file can open it in an editor instead of running it. Use a terminal, or launch through the command wrapper:
-
-```cmd
-kapsel.cmd
-```
-
-### Install For Current User
-
-Install the launchers into `$HOME\bin` and optionally add that directory to the user `PATH`:
+Install the launchers for the current user and add their directory to the user `PATH`:
 
 ```powershell
 .\install.ps1 -AddToUserPath
 ```
 
-The installer creates:
-
-- `kapsel.ps1`: PowerShell launcher.
-- `kapsel.cmd`: command launcher so `kapsel` works from a new terminal.
-
-Use a custom install directory when needed:
+Use a custom location when required:
 
 ```powershell
-.\install.ps1 -InstallDirectory "$HOME\Tools\Kapsel" -AddToUserPath
+.\install.ps1 -InstallDirectory "$env:USERPROFILE\Tools\Kapsel" -AddToUserPath
 ```
 
-Open a new terminal after adding the directory to `PATH`, then run:
+Open a new terminal after changing `PATH`, then run `kapsel`.
 
-```cmd
-kapsel
-```
+## Catalog Contract
 
-### Package Providers
+Browse the complete generated list in [CATALOG.md](./CATALOG.md).
 
-Kapsel delegates installation and update commands to external package managers:
-
-- `winget`: recommended default provider on modern Windows.
-- Chocolatey: optional fallback when installed and when the catalog entry defines a Chocolatey package id.
-
-The UI disables unavailable providers and skips selected applications that do not define a package id for the selected provider.
-
-## Release Builds
-
-Kapsel can be packaged for GitHub Releases with:
-
-```powershell
-npm run build:release
-```
-
-The build creates:
-
-- `dist/releases/Kapsel-<version>-windows/`: unpacked release directory.
-- `dist/releases/Kapsel-<version>-windows.zip`: archive ready to attach to a GitHub Release.
-- `Kapsel.exe`: Windows executable generated from `kapsel.ps1`.
-
-The release archive includes the executable, script launchers, `src/`, `assets/`, and README content. Distribute the generated `.zip`, not the `.exe` alone.
-
-## Release Automation
-
-GitHub Actions creates releases from version tags. Update the app version, commit the change, then push a matching tag:
-
-```powershell
-git tag v1.1.5
-git push origin v1.1.5
-```
-
-The release workflow validates that the tag matches `package.json`, runs validation and tests, builds the Windows release package, and publishes `Kapsel-<version>-windows.zip` to the GitHub Release.
-
-## Catalog
-
-The catalog lives at:
-
-```txt
-src/applications.json
-```
-
-Each entry uses this shape:
+The source catalog remains at `src/applications.json` for backward compatibility and manual
+maintenance. Each top-level property is a stable application key:
 
 ```json
 {
-  "category": "Utilities",
-  "content": "7-Zip",
-  "description": "File archiver",
-  "link": "https://www.7-zip.org/",
-  "winget": "7zip.7zip",
-  "choco": "7zip",
-  "foss": true
+  "sevenzip": {
+    "category": "Utilities",
+    "content": "7-Zip",
+    "description": "File archiver",
+    "link": "https://www.7-zip.org/",
+    "winget": "7zip.7zip",
+    "choco": "7zip",
+    "foss": true
+  }
 }
 ```
 
-Field guidance:
+| Field | Contract |
+| --- | --- |
+| Top-level key | Unique, stable identifier used to preserve selection and map UI rows. |
+| `category` | User-facing category. Empty values normalize to `Uncategorized`. |
+| `content` | Required display name. |
+| `description` | Short factual description. |
+| `link` | Official project, publisher, or product page. |
+| `winget` | Exact package identifier, or `na` when unavailable. |
+| `choco` | Exact Chocolatey package identifier, or `na` when unavailable. |
+| `foss` | Boolean identifying Free and Open Source Software. |
 
-- `category`: visible UI category.
-- `content`: display name shown in the app grid.
-- `description`: short user-facing description.
-- `link`: official project or vendor page.
-- `winget`: exact `winget` package id, or `na` when unavailable.
-- `choco`: Chocolatey package id, or `na` when unavailable.
-- `foss`: `true` when the application is Free and Open Source Software.
+Kapsel treats persisted JSON as untrusted input. The infrastructure adapter parses the document,
+then the domain layer normalizes and validates every catalog entry before presentation.
 
-`winget` is preferred when available. Chocolatey is used only when selected in the UI and the catalog entry defines a compatible package.
+## Package Workflow
 
-## What Is FOSS
+Package execution has four explicit stages:
 
-FOSS means `Free and Open Source Software`. In practice, these are applications whose source code is publicly available and can usually be studied, modified, and redistributed under their license.
+1. Presentation sends selected applications and a provider to the application service.
+2. Application separates supported and unsupported entries.
+3. Domain creates a structured command description without executing a process.
+4. Infrastructure starts the package manager and returns its exit code.
 
-The `FOSS only` filter shows catalog entries marked with:
-
-```json
-"foss": true
-```
+Generated commands use exact package identifiers and non-interactive agreement flags. Kapsel never
+constructs a command from a free-form user command string.
 
 ## Architecture
 
 ```txt
-src/
-  applications.json
-  Kapsel.ps1
-  modules/
-    Applications.psm1
-    ApplicationGrid.psm1
-    ApplicationInfo.psm1
-    ApplicationMain.psm1
-    ApplicationSidebar.psm1
-    Assets.psm1
-    Branding.psm1
-    Gui.psm1
-    UiTheme.psm1
-tests/
-  Applications.Tests.ps1
+Presentation / WinForms
+        |
+Application use cases
+        |
+Domain rules and command descriptions
+
+Composition root --------> Infrastructure adapters
+        |
+Shared product metadata
 ```
 
-Module responsibilities:
+Dependency direction is enforced by tests: Domain has no UI, filesystem, or process dependency;
+Application has no Presentation or Infrastructure import. The WinForms composition root is the
+only place allowed to wire use cases to concrete adapters.
 
-- `Applications.psm1`: catalog loading, filtering, package manager detection, and package command construction.
-- `ApplicationGrid.psm1`: DataGridView creation, table binding, and selected application extraction.
-- `ApplicationInfo.psm1`: Activity, Features, and Changelog UI section.
-- `ApplicationMain.psm1`: main content layout, filters, stats, actions, and grid composition.
-- `ApplicationSidebar.psm1`: brand header, provider selector, app metadata, and category navigation.
-- `Assets.psm1`: internal asset path resolution.
-- `Branding.psm1`: product name, version, creator, and description.
-- `Gui.psm1`: composition root and event wiring.
-- `UiTheme.psm1`: colors, fonts, shared controls, and custom-drawn dark UI helpers.
+```txt
+src/
+  Kapsel.ps1
+  applications.json
+  modules/
+    Application/
+      CatalogService.psm1
+      PackageService.psm1
+    Domain/
+      ApplicationCatalog.psm1
+      PackageOperation.psm1
+    Infrastructure/
+      AssetProvider.psm1
+      JsonCatalogRepository.psm1
+      PackageManagerAdapter.psm1
+    Presentation/WinForms/
+      ApplicationGridView.psm1
+      CatalogView.psm1
+      ContextView.psm1
+      Gui.psm1
+      ShellView.psm1
+      SidebarView.psm1
+      Theme.psm1
+      WindowChrome.psm1
+    Shared/
+      ProductMetadata.psm1
+```
 
 ## Development
 
-Common commands are exposed through `package.json`:
-
 ```powershell
-npm start
+npm run dev
 npm run validate
 npm test
+npm run test:ui
+npm run docs:catalog:check
 npm run build:check
+```
+
+Remove generated release directories and ZIP files without touching other `dist` content:
+
+```powershell
+npm run clean:releases
+```
+
+For a full Windows release build:
+
+```powershell
 npm run build:release
 ```
 
-Command purpose:
+The release build creates:
 
-- `npm start`: opens the Kapsel UI.
-- `npm run validate`: validates PowerShell syntax.
-- `npm test`: runs the Pester test suite.
-- `npm run build:check`: validates release packaging without compiling the executable.
-- `npm run build:release`: builds the full release package with `Kapsel.exe`.
-- `npm run release`: runs validation, tests, and full release packaging.
-
-Validate PowerShell syntax:
-
-```powershell
-$files = Get-ChildItem -Recurse -Include *.ps1,*.psm1
-foreach ($file in $files) {
-    $tokens = $null
-    $errors = $null
-    [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref] $tokens, [ref] $errors) | Out-Null
-    if ($errors.Count -gt 0) { throw "$($file.FullName): $($errors[0].Message)" }
-}
+```txt
+dist/releases/Kapsel-<version>-windows/
+dist/releases/Kapsel-<version>-windows.zip
 ```
 
-Run tests:
+The executable depends on the adjacent `src` and `assets` directories. Distribute the generated
+ZIP archive, not `Kapsel.exe` by itself.
+
+## Release Automation
+
+Update `package.json` and `ProductMetadata.psm1` to the same version, commit the release, then push
+a matching semantic-version tag:
 
 ```powershell
-Invoke-Pester .\tests
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
-Smoke-test the entrypoint:
+The Quality workflow validates source changes and pull requests. The Release workflow runs the
+same checks, builds the distributable ZIP, and publishes it only from a matching version tag.
 
-```powershell
-.\kapsel.ps1 version
-```
+## Documentation
 
-## Contributing
+| Document | Purpose |
+| --- | --- |
+| [README.md](./README.md) | Product overview, setup, operation, and contributor entry point. |
+| [CATALOG.md](./CATALOG.md) | Generated list of available applications and package identifiers. |
+| [CHANGELOG.md](./CHANGELOG.md) | Released user-visible, architectural, catalog, and packaging changes. |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Issue, catalog, branch, commit, and pull-request workflow. |
 
-Read [CONTRIBUTING.md](../CONTRIBUTING.md) before opening a pull request or issue.
+## Project Status
 
-Short version:
+`v1.2.0` is the clean-architecture and desktop-shell release. Kapsel remains focused on one job:
+making a curated Windows application catalog easy to search, install, and update from one native
+interface.
 
-- Open an issue first for bugs, design regressions, large catalog changes, or behavior changes.
-- Keep catalog entries accurate, official, and manually maintainable.
-- Keep UI changes inside the existing clean module boundaries.
-- Run syntax validation and Pester tests before submitting a pull request.
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening an issue or pull request.
