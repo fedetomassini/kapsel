@@ -34,7 +34,7 @@ jobs:
       - name: Setup Pester 4
         shell: pwsh
         run: |
-          Install-Module Pester -RequiredVersion 4.10.1 -Force -Scope CurrentUser
+          Install-Module Pester -RequiredVersion 4.10.1 -Force -Scope CurrentUser -SkipPublisherCheck
           Import-Module Pester -RequiredVersion 4.10.1 -Force
 
       - name: Run tests
@@ -44,4 +44,5 @@ jobs:
         run: npm run docs:catalog:check
 
       - name: Validate release package structure
-        run: npm run build:check
+        shell: pwsh
+        run: ./build.ps1 -SkipExecutable
