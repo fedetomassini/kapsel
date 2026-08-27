@@ -1,6 +1,6 @@
 {
 	"name": "kapsel",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"private": true,
 	"description": "Windows application installer and updater built with PowerShell Windows Forms.",
 	"scripts": {
@@ -10,7 +10,7 @@
 		"help": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Start-Kapsel.ps1 -Command help",
 		"version": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Start-Kapsel.ps1 -Command version",
 		"validate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Validate-PowerShell.ps1",
-		"test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-Pester ./tests\"",
+		"test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Import-Module Pester -RequiredVersion 4.10.1; Invoke-Pester ./tests\"",
 		"test:ui": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-UiSmoke.ps1",
 		"docs:catalog": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Generate-CatalogMarkdown.ps1",
 		"docs:catalog:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Generate-CatalogMarkdown.ps1 -Check",
