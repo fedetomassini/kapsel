@@ -17,9 +17,11 @@ function Get-KapselFeatureLines {
         '',
         'OPERATIONS',
         'Batch install and update workflows.',
+        'Background execution with application progress and elapsed time.',
         'winget and Chocolatey provider support.',
         'Explicit confirmation before process execution.',
         'Unsupported packages are skipped and reported.',
+        'Results and provider errors are explained directly in Activity.',
         '',
         'FOSS',
         'Free and Open Source Software has source code available under an open license.'
@@ -32,11 +34,12 @@ function Get-KapselChangelogLines {
 
     return @(
         "VERSION $($Metadata.Version)",
-        'Layered architecture with explicit domain boundaries.',
-        'Compact three-pane desktop workspace.',
-        'Package providers isolated behind an adapter.',
-        'Catalog validation and selection persistence.',
-        'Expanded architecture and contributor documentation.'
+        'Fixed install and update confirmation crashes.',
+        'Responsive background operations with visible progress.',
+        'No available updates are reported as unchanged, not failed.',
+        'Provider error details and summaries appear in Activity.',
+        'Readable wrapping text and preserved Activity reading position.',
+        'Script-based release ZIP; executable builds are optional.'
     )
 }
 

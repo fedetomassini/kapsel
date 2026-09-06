@@ -36,7 +36,10 @@ exit `$LASTEXITCODE
 
 $cmdLauncher = @"
 @echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0kapsel.ps1" %*
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "%~dp0kapsel.ps1" %*
+set "kapselExitCode=%errorlevel%"
+if errorlevel 1 pause
+exit /b %kapselExitCode%
 "@
 
     Set-Content -LiteralPath $psLauncherPath -Value $psLauncher -Encoding UTF8

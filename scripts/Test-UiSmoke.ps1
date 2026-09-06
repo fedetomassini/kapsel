@@ -3,11 +3,16 @@
 param(
     [int] $TimeoutSeconds = 10,
     [string] $ScreenshotPath,
-    [string] $LauncherPath
+    [string] $LauncherPath,
+    [switch] $ExercisePackageActions
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+if ($ExercisePackageActions) {
+    # Always use the fixture when accepting install/update confirmations.
+    $LauncherPath = Join-Path $projectRoot 'tests\Fixtures\PackageUi.ps1'
+}
 $resolvedLauncherPath = if ([string]::IsNullOrWhiteSpace($LauncherPath)) {
     Join-Path $projectRoot 'kapsel.ps1'
 }
@@ -30,8 +35,9 @@ try {
     else {
         $process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
             '-NoProfile',
+            '-STA',
             '-ExecutionPolicy', 'Bypass',
-            '-File', $resolvedLauncherPath
+            '-File', ('"{0}"' -f $resolvedLauncherPath)
         ) -WorkingDirectory $launcherDirectory -PassThru
     }
 
@@ -75,6 +81,9 @@ namespace KapselSmoke {
 
         [DllImport("user32.dll", EntryPoint = "SendMessageW")]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
@@ -145,7 +154,7 @@ namespace KapselSmoke {
         Where-Object { $_.Current.ClassName -like '*.EDIT.*' } |
         Select-Object -First 1
     if ($null -eq $searchBox) { throw 'Kapsel search control was not found.' }
-    [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, '7-Zip') | Out-Null
+    [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'Mozilla.Firefox') | Out-Null
 
     $providerButton = $controls |
         Where-Object { $_.Current.ClassName -like '*.BUTTON.*' -and $_.Current.Name -eq 'winget' } |
@@ -158,6 +167,56 @@ namespace KapselSmoke {
     $process.Refresh()
     if ($process.HasExited) {
         throw "Kapsel exited while exercising search and provider controls. Exit code: $($process.ExitCode)"
+    }
+    if ($ExercisePackageActions) {
+        $selectButton = $controls | Where-Object { $_.Current.Name -eq 'Select visible' } | Select-Object -First 1
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $selectButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        foreach ($action in @(
+            @{ Button = 'Install'; Verb = 'Install'; Summary = '2 succeeded, 0 failed' },
+            @{ Button = 'Update'; Verb = 'Upgrade'; Summary = '0 completed, 1 unchanged, 1 failed' },
+            @{ Button = 'Update'; Verb = 'Upgrade'; Summary = '0 completed, 2 unchanged, 0 failed' }
+        )) {
+            $button = $controls | Where-Object { $_.Current.Name -eq $action.Button } | Select-Object -First 1
+            if (-not $button.Current.IsEnabled) { throw "Action disabled before confirmation: $($action.Button)" }
+            [KapselSmoke.NativeMethods]::PostMessage([IntPtr] $button.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            $dialog = $null
+            do {
+                Start-Sleep -Milliseconds 100
+                $dialog = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+                    [System.Windows.Automation.TreeScope]::Descendants, $processCondition
+                ) | Where-Object { $_.Current.Name -eq 'Confirm package action' } | Select-Object -First 1
+            } while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline)
+            if ($null -eq $dialog) {
+                $details = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $processCondition) | ForEach-Object { $_.Current.Name }
+                throw "Missing confirmation for $($action.Button). Controls: $($details -join ' | ')"
+            }
+            $dialogControls = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+            if (-not ($dialogControls | Where-Object { $_.Current.Name -like '*with winget?*' })) { throw 'Provider confirmation text is missing.' }
+            $yes = $dialogControls | Where-Object { $_.Current.AutomationId -eq '6' } | Select-Object -First 1
+            if ($null -eq $yes) { throw 'Confirmation Yes button missing.' }
+            [KapselSmoke.NativeMethods]::PostMessage([IntPtr] $yes.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+            Start-Sleep -Milliseconds 500
+            if ($button.Current.IsEnabled) { throw 'Package action remained enabled during execution.' }
+            $runningControls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+            if (-not ($runningControls | Where-Object { $_.Current.Name -like '*0/2 completed*' })) { throw 'Running package progress is missing.' }
+            # Search must still respond while the background adapter is waiting.
+            [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'Mozilla.Firefox') | Out-Null
+            $expected = "$($action.Verb) finished: $($action.Summary)"
+            $deadline = [DateTime]::UtcNow.AddSeconds(10)
+            do {
+                Start-Sleep -Milliseconds 100
+                $currentControls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+                $summary = $currentControls | Where-Object { $_.Current.Name -eq $expected } | Select-Object -First 1
+            } while ($null -eq $summary -and [DateTime]::UtcNow -lt $deadline)
+            if ($null -eq $summary) { throw "Missing package result: $expected" }
+            if ($action.Button -eq 'Update') {
+                if (-not ($currentControls | Where-Object { $_.Current.Name -like '*No newer version is available*' })) { throw 'Activity did not explain the unchanged application.' }
+                if (-not ($currentControls | Where-Object { $_.Current.Name -like '*Simulated provider failure*' })) { throw 'Provider failure details are missing from Activity.' }
+            }
+            if (-not $button.Current.IsEnabled) { throw 'Package actions were not restored.' }
+            Write-Host "Verified package UI: $expected"
+        }
     }
     [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, '') | Out-Null
 
@@ -234,9 +293,9 @@ namespace KapselSmoke {
         Select-Object -First 1
     [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $closeButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
     if (-not $process.WaitForExit(5000)) {
-        $process.Kill()
-        $process.WaitForExit()
+        throw 'Kapsel did not close after clicking Close.'
     }
+    if ($process.ExitCode -ne 0) { throw "Kapsel exited with code $($process.ExitCode)." }
     Write-Host 'Kapsel UI smoke test passed.'
 }
 finally {

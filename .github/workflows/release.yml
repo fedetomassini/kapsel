@@ -76,7 +76,7 @@ jobs:
 
       - name: Build release package
         shell: pwsh
-        run: ./build.ps1 -InstallBuildDependency
+        run: ./build.ps1
 
       - name: Publish GitHub Release
         shell: pwsh

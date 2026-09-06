@@ -64,14 +64,18 @@ function Invoke-KapselPackageAction {
         throw "The $Provider process adapter did not return an exit code."
     }
     $exitCode = [int] $processResult.ExitCode
+    $outcome = Get-KapselPackageOutcome -Provider $Provider -Action $Action -ExitCode $exitCode
 
     return [PSCustomObject] @{
         Application = $Application.Name
         Provider    = $Provider
         Action      = $Action
         ExitCode    = $exitCode
-        Succeeded   = $exitCode -eq 0
+        Succeeded   = $outcome.Succeeded
+        Status      = $outcome.Status
+        Message     = $outcome.Message
         Command     = $command.Display
+        Diagnostics = if ($null -ne $processResult.PSObject.Properties['Diagnostics']) { [string] $processResult.Diagnostics } else { '' }
     }
 }
 

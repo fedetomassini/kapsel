@@ -9,6 +9,29 @@ $TestApplication = [PSCustomObject] @{
 }
 
 Describe 'Package operation domain' {
+    It 'interprets <Provider> <Action> exit code <Code> as <Status>' -TestCases @(
+        @{ Provider = 'winget'; Action = 'Upgrade'; Code = -1978335189; Status = 'UpToDate'; Success = $true },
+        @{ Provider = 'winget'; Action = 'Upgrade'; Code = -1978335153; Status = 'UpToDate'; Success = $true },
+        @{ Provider = 'winget'; Action = 'Install'; Code = -1978335189; Status = 'UpToDate'; Success = $true },
+        @{ Provider = 'winget'; Action = 'Install'; Code = -1978335135; Status = 'AlreadyInstalled'; Success = $true },
+        @{ Provider = 'winget'; Action = 'Upgrade'; Code = -1978335135; Status = 'Failed'; Success = $false },
+        @{ Provider = 'winget'; Action = 'Upgrade'; Code = -1978335212; Status = 'Failed'; Success = $false },
+        @{ Provider = 'winget'; Action = 'Upgrade'; Code = -1978335152; Status = 'Failed'; Success = $false },
+        @{ Provider = 'winget'; Action = 'Upgrade'; Code = 2; Status = 'Failed'; Success = $false },
+        @{ Provider = 'choco'; Action = 'Upgrade'; Code = 2; Status = 'UpToDate'; Success = $true },
+        @{ Provider = 'choco'; Action = 'Install'; Code = 2; Status = 'Failed'; Success = $false },
+        @{ Provider = 'choco'; Action = 'Upgrade'; Code = 3010; Status = 'RestartRequired'; Success = $true },
+        @{ Provider = 'choco'; Action = 'Install'; Code = 1641; Status = 'RestartRequired'; Success = $true },
+        @{ Provider = 'choco'; Action = 'Upgrade'; Code = -1978335189; Status = 'Failed'; Success = $false },
+        @{ Provider = 'winget'; Action = 'Install'; Code = 0; Status = 'Completed'; Success = $true }
+    ) {
+        param($Provider, $Action, $Code, $Status, $Success)
+        $outcome = Get-KapselPackageOutcome -Provider $Provider -Action $Action -ExitCode $Code
+        $outcome.Status | Should Be $Status
+        $outcome.Succeeded | Should Be $Success
+        $outcome.Message | Should Not BeNullOrEmpty
+    }
+
     It 'builds a non-interactive winget install command' {
         $command = New-KapselPackageCommand -Action Install -Application $TestApplication -Provider winget
 

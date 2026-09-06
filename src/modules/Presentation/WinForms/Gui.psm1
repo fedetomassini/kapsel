@@ -14,6 +14,7 @@ Import-Module (Join-Path $PSScriptRoot 'ShellView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'SidebarView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Theme.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'WindowChrome.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'PackageOperationRunner.psm1') -Force
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -46,13 +47,11 @@ function Show-KapselGui {
     $selectedKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 
     $form = New-KapselMainForm -Metadata $Metadata
-    $uiExceptionState = [PSCustomObject] @{ Exception = $null }
     $threadExceptionHandler = [System.Threading.ThreadExceptionEventHandler] {
         param($sender, $eventArgs)
 
-        $uiExceptionState.Exception = $eventArgs.Exception
         if ($null -ne $form -and -not $form.IsDisposed) {
-            $form.Close()
+            [void] [System.Windows.Forms.MessageBox]::Show($form, $eventArgs.Exception.Message, 'Kapsel - UI error')
         }
     }
     [System.Windows.Forms.Application]::add_ThreadException($threadExceptionHandler)
@@ -73,6 +72,9 @@ function Show-KapselGui {
     $contextView = New-KapselContextView -Metadata $Metadata
     $shell = New-KapselShellView -Form $form -Sidebar $sidebar.Panel -Catalog $catalogView.Panel -Context $contextView.Panel -Metadata $Metadata
     $form.Controls.Add($shell.Panel)
+    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow }
+    $operationTimer = New-Object System.Windows.Forms.Timer
+    $operationTimer.Interval = 200
 
     $getSelectedApplications = {
         return @($catalog | Where-Object { $selectedKeys.Contains([string] $_.Key) })
@@ -82,8 +84,8 @@ function Show-KapselGui {
         $count = $selectedKeys.Count
         $catalogView.SelectionLabel.Text = if ($count -eq 1) { '1 application selected' } else { "$count applications selected" }
         $hasProvider = -not [string]::IsNullOrWhiteSpace([string] $sidebar.ProviderState.Value)
-        $catalogView.InstallButton.Enabled = $count -gt 0 -and $hasProvider
-        $catalogView.UpgradeButton.Enabled = $count -gt 0 -and $hasProvider
+        $catalogView.InstallButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
+        $catalogView.UpgradeButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
     }
 
     $synchronizeVisibleSelection = {
@@ -118,18 +120,15 @@ function Show-KapselGui {
         else {
             "$($filtered.Count) applications match the current view."
         }
-        $shell.StatusLabel.Text = "$($filtered.Count) visible / $($catalog.Count) total"
+        if (-not $operation.Busy) { $shell.StatusLabel.Text = "$($filtered.Count) visible / $($catalog.Count) total" }
         & $updateActionState
-    }
-
-    $invokePackageProcess = {
-        param([object] $Command)
-        return Invoke-KapselPackageProcess -Command $Command
     }
 
     $runPackageAction = {
         param([ValidateSet('Install', 'Upgrade')] [string] $Action)
 
+        if ($operation.Busy) { return }
+        & $synchronizeVisibleSelection
         $selected = @(& $getSelectedApplications)
         if ($selected.Count -eq 0) {
             [System.Windows.Forms.MessageBox]::Show('Select at least one application.', $Metadata.Name) | Out-Null
@@ -148,7 +147,7 @@ function Show-KapselGui {
             return
         }
 
-        $message = "$Action $($plan.Supported.Count) application(s) with $provider?"
+        $message = "$Action $($plan.Supported.Count) application(s) with ${provider}?"
         if ($plan.Unsupported.Count -gt 0) {
             $message += " $($plan.Unsupported.Count) unsupported item(s) will be skipped."
         }
@@ -160,52 +159,112 @@ function Show-KapselGui {
         )
         if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
 
-        $succeeded = 0
-        $failed = 0
         try {
-            $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-            $catalogView.InstallButton.Enabled = $false
-            $catalogView.UpgradeButton.Enabled = $false
+            $operation.Busy = $true
+            $operation.Action = $Action
+            $operation.Total = $plan.Supported.Count
+            $operation.Completed = 0
+            $operation.Succeeded = 0
+            $operation.Unchanged = 0
+            $operation.Failed = 0
+            $operation.Current = 'Starting'
+            $operation.Started = [DateTime]::UtcNow
+            & $updateActionState
+            $sidebar.WingetButton.Enabled = $false
+            $sidebar.ChocoButton.Enabled = $false
+            $shell.BatchProgress.Maximum = $operation.Total
+            $shell.BatchProgress.Value = 0
+            $shell.BatchProgress.Visible = $true
+            $shell.CurrentProgress.Visible = $true
             $shell.StatusLabel.Text = "$Action in progress"
 
             foreach ($application in @($plan.Unsupported)) {
                 Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Skipped $($application.Name): $provider is not supported." -Level Warning
             }
 
-            foreach ($application in @($plan.Supported)) {
-                Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$Action $($application.Name) with $provider."
-                [System.Windows.Forms.Application]::DoEvents()
-                try {
-                    $packageParameters = @{
-                        Action         = $Action
-                        Application    = $application
-                        Provider       = $provider
-                        ProviderStatus = $providerStatus
-                        ProcessInvoker = $invokePackageProcess
-                    }
-                    $result = Invoke-KapselPackageAction @packageParameters
-                    if ($result.Succeeded) {
-                        $succeeded++
-                        Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Completed: $($application.Name)." -Level Success
-                    }
-                    else {
-                        $failed++
-                        Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Failed: $($application.Name) returned exit code $($result.ExitCode)." -Level Error
-                    }
-                }
-                catch {
-                    $failed++
-                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $_.Exception.Message -Level Error
-                }
-            }
-
-            $shell.StatusLabel.Text = "$Action finished: $succeeded succeeded, $failed failed"
+            $operation.Batch = Start-KapselPackageBatch -Plan $plan -Action $Action -ProviderStatus $providerStatus
+            $operationTimer.Start()
         }
-        finally {
-            $form.Cursor = [System.Windows.Forms.Cursors]::Default
+        catch {
+            $operation.Busy = $false
+            $shell.CurrentProgress.Visible = $false
+            $shell.StatusLabel.Text = 'Could not start package operation'
+            $sidebar.WingetButton.Enabled = $providerStatus.WingetAvailable
+            $sidebar.ChocoButton.Enabled = $providerStatus.ChocoAvailable
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $_.Exception.Message -Level Error
             & $updateActionState
         }
     }
+
+    $operationTimer.Add_Tick({
+        if ($null -eq $operation.Batch) { return }
+        try {
+            # Snapshot completion before draining: a completing worker may still enqueue events.
+            $finished = $operation.Batch.Handle.IsCompleted
+            $event = $null
+            while ($operation.Batch.Events.TryDequeue([ref] $event)) {
+                if ($event.Kind -eq 'Started') {
+                    $operation.Current = $event.Application
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($operation.Action): $($event.Application)."
+                    continue
+                }
+                $operation.Completed++
+                $shell.BatchProgress.Value = $operation.Completed
+                if ($event.Kind -eq 'Completed' -and $event.Result.Succeeded) {
+                    $unchanged = $event.Result.Status -in @('UpToDate', 'AlreadyInstalled')
+                    if ($unchanged) { $operation.Unchanged++ } else { $operation.Succeeded++ }
+                    $level = if ($unchanged) { 'Info' } elseif ($event.Result.Status -eq 'RestartRequired') { 'Warning' } else { 'Success' }
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($event.Application): $($event.Result.Message)" -Level $level
+                    if ($event.Result.Provider -eq 'choco' -and -not [string]::IsNullOrWhiteSpace($event.Result.Diagnostics)) {
+                        Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $event.Result.Diagnostics
+                    }
+                }
+                else {
+                    $operation.Failed++
+                    $detail = if ($event.Kind -eq 'Failed') { $event.Message } else {
+                        $providerDetail = if ([string]::IsNullOrWhiteSpace($event.Result.Diagnostics)) { 'The provider returned no further details.' } else { $event.Result.Diagnostics }
+                        "$($event.Result.Message)`n$providerDetail"
+                    }
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Failed: $($event.Application). $detail" -Level Error
+                }
+            }
+            $elapsed = [int] ([DateTime]::UtcNow - $operation.Started).TotalSeconds
+            $shell.StatusLabel.Text = "$($operation.Action): $($operation.Current) | $($operation.Completed)/$($operation.Total) completed | ${elapsed}s"
+            if (-not $finished) { return }
+            [void] $operation.Batch.Worker.EndInvoke($operation.Batch.Handle)
+            if ($operation.Batch.Worker.Streams.Error.Count -gt 0) { throw ($operation.Batch.Worker.Streams.Error | Out-String) }
+            $shell.StatusLabel.Text = "$($operation.Action) finished: $($operation.Succeeded) succeeded, $($operation.Failed) failed"
+            if ($operation.Unchanged -gt 0) {
+                $shell.StatusLabel.Text = "$($operation.Action) finished: $($operation.Succeeded) completed, $($operation.Unchanged) unchanged, $($operation.Failed) failed"
+            }
+            $summaryLevel = if ($operation.Failed -gt 0) { 'Warning' } else { 'Success' }
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $shell.StatusLabel.Text -Level $summaryLevel
+        }
+        catch {
+            $finished = $true
+            $shell.StatusLabel.Text = 'Package operation interrupted; see Activity'
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $_.Exception.Message -Level Error
+        }
+        finally {
+            if ($finished) {
+                $operationTimer.Stop()
+                $operation.Batch.Worker.Dispose()
+                $operation.Batch = $null
+                $operation.Busy = $false
+                $shell.CurrentProgress.Visible = $false
+                $sidebar.WingetButton.Enabled = $providerStatus.WingetAvailable
+                $sidebar.ChocoButton.Enabled = $providerStatus.ChocoAvailable
+                & $updateActionState
+            }
+        }
+    })
+    $form.Add_FormClosing({
+        param($sender, $eventArgs)
+        if ($operation.Busy) {
+            $eventArgs.Cancel = $true
+            [void] [System.Windows.Forms.MessageBox]::Show($form, 'Wait for the package operation to finish before closing Kapsel. You can minimize the window.', $Metadata.Name)
+        }
+    })
 
     $catalogView.RefreshButton.Add_Click($refreshCatalog)
     $catalogView.SearchBox.Add_TextChanged($refreshCatalog)
@@ -289,11 +348,8 @@ function Show-KapselGui {
     }
     finally {
         [System.Windows.Forms.Application]::remove_ThreadException($threadExceptionHandler)
+        $operationTimer.Dispose()
         $form.Dispose()
-    }
-
-    if ($null -ne $uiExceptionState.Exception) {
-        throw "Unhandled UI error: $($uiExceptionState.Exception.Message)"
     }
 }
 

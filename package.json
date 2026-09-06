@@ -1,6 +1,6 @@
 {
 	"name": "kapsel",
-	"version": "1.2.1",
+	"version": "1.2.5",
 	"private": true,
 	"description": "Windows application installer and updater built with PowerShell Windows Forms.",
 	"scripts": {
@@ -10,13 +10,15 @@
 		"help": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Start-Kapsel.ps1 -Command help",
 		"version": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Start-Kapsel.ps1 -Command version",
 		"validate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Validate-PowerShell.ps1",
-		"test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Import-Module Pester -RequiredVersion 4.10.1; Invoke-Pester ./tests\"",
+		"test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Import-Module Pester -RequiredVersion 4.10.1 -ErrorAction Stop; Invoke-Pester ./tests -EnableExit\"",
 		"test:ui": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-UiSmoke.ps1",
+		"test:ui:packages": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-UiSmoke.ps1 -ExercisePackageActions",
 		"docs:catalog": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Generate-CatalogMarkdown.ps1",
 		"docs:catalog:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Generate-CatalogMarkdown.ps1 -Check",
 		"build": "npm run build:check",
 		"build:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -SkipExecutable",
-		"build:release": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -InstallBuildDependency",
+		"build:release": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1",
+		"build:exe": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -IncludeExecutable -InstallBuildDependency",
 		"release": "npm run validate && npm test && npm run build:release",
 		"clean": "npm run clean:releases",
 		"clean:releases": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Clean-Releases.ps1"

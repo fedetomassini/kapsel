@@ -185,16 +185,31 @@ function New-KapselVisualList {
     $panel.AutoScroll = $true
     $panel.BackColor = $colors.Context
     $panel.Padding = New-Object System.Windows.Forms.Padding(14, 12, 14, 12)
-    $panel.Add_Resize({
+    $panel.Add_ClientSizeChanged({
         param($sender, $eventArgs)
 
-        foreach ($control in $sender.Controls) {
-            $control.Width = [Math]::Max(120, [int] $sender.ClientSize.Width - 34)
+        $width = [Math]::Max(1, $sender.ClientSize.Width - $sender.Padding.Horizontal - [System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth)
+        $sender.SuspendLayout()
+        try {
+            foreach ($control in $sender.Controls) {
+                $control.MinimumSize = New-Object System.Drawing.Size($width, 0)
+                $control.MaximumSize = New-Object System.Drawing.Size($width, 0)
+            }
+        }
+        finally {
+            $sender.ResumeLayout($true)
+            # Recalculate scroll extents after wrapped labels have their final height.
+            $sender.PerformLayout()
         }
     })
 
     foreach ($line in $Lines) {
-        Add-KapselVisualLine -Panel $panel -Text $line | Out-Null
+        if (-not [string]::IsNullOrWhiteSpace($line) -and $line -ceq $line.ToUpperInvariant()) {
+            Add-KapselVisualLine -Panel $panel -Text $line -Color $colors.Text -Style ([System.Drawing.FontStyle]::Bold) | Out-Null
+        }
+        else {
+            Add-KapselVisualLine -Panel $panel -Text $line | Out-Null
+        }
     }
     return $panel
 }
@@ -205,16 +220,21 @@ function Add-KapselVisualLine {
         [Parameter(Mandatory = $true)] [System.Windows.Forms.Control] $Panel,
         [AllowEmptyString()] [string] $Text,
         [System.Drawing.Color] $Color = (Get-KapselUiColors).Muted,
-        [float] $Size = 8,
+        [float] $Size = 9,
         [System.Drawing.FontStyle] $Style = [System.Drawing.FontStyle]::Regular
     )
 
     $displayText = if ([string]::IsNullOrEmpty($Text)) { ' ' } else { $Text }
     $label = New-KapselLabel -Text $displayText -Size $Size -Color $Color -Style $Style -Height 23 -Dock ([System.Windows.Forms.DockStyle]::None)
-    $label.Width = [Math]::Max(120, [int] $Panel.ClientSize.Width - 34)
-    $label.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 3)
+    $label.AutoEllipsis = $false
+    $label.UseMnemonic = $false
+    $label.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
+    $width = [Math]::Max(1, $Panel.ClientSize.Width - $Panel.Padding.Horizontal - [System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth)
+    $label.MinimumSize = New-Object System.Drawing.Size($width, 0)
+    $label.MaximumSize = New-Object System.Drawing.Size($width, 0)
+    $label.AutoSize = $true
+    $label.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 8)
     $Panel.Controls.Add($label)
-    $Panel.ScrollControlIntoView($label)
     return $label
 }
 
@@ -235,7 +255,10 @@ function Write-KapselActivity {
         default { $colors.Muted }
     }
     $timestamp = Get-Date -Format 'HH:mm:ss'
-    Add-KapselVisualLine -Panel $ActivityPanel -Text ("[{0}] {1}" -f $timestamp, $Message) -Color $color | Out-Null
+    $scroll = $ActivityPanel.VerticalScroll
+    $followLatest = -not $scroll.Visible -or $scroll.Value -ge ($scroll.Maximum - $scroll.LargeChange - 4)
+    $label = Add-KapselVisualLine -Panel $ActivityPanel -Text ("[{0}] {1}" -f $timestamp, $Message) -Color $color
+    if ($followLatest -and $ActivityPanel.Visible) { $ActivityPanel.ScrollControlIntoView($label) }
 }
 
 function Set-KapselTextBoxCueBanner {

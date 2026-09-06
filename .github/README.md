@@ -8,9 +8,9 @@ Kapsel is a native Windows application for installing and updating a curated sof
 through `winget` or Chocolatey. It is written in PowerShell and Windows Forms, requires no web
 runtime, and keeps package operations explicit and reviewable.
 
-Version `1.2.0` rebuilds the project around a compact three-pane desktop shell, application-owned
-contracts, isolated external adapters, and a custom window frame that remains consistent across
-Windows themes.
+Version `1.2.5` adds responsive background operations, visible package progress, readable context
+panels, and clear results for applications with no available updates. Releases use a script-based
+ZIP by default, with executable builds available as an explicit option.
 
 ## What Kapsel Does
 
@@ -19,6 +19,7 @@ Windows themes.
 - Filters applications by category and Free and Open Source Software status.
 - Preserves selections while the user searches or changes category.
 - Installs or updates multiple applications after explicit confirmation.
+- Runs package operations in the background with a completed-applications progress bar, an active-operation indicator, and elapsed time.
 - Uses `winget` or Chocolatey only when the provider is installed and supported by the package.
 - Skips unsupported selections and records the result in the activity panel.
 - Opens the official website for the focused application.
@@ -171,6 +172,18 @@ Package execution has four explicit stages:
 Generated commands use exact package identifiers and non-interactive agreement flags. Kapsel never
 constructs a command from a free-form user command string.
 
+The progress bar counts completed applications (including failures), not downloaded bytes. The
+animated indicator remains active while the current package runs. You can search, move, or minimize
+the window during installation; another batch and closing the window are blocked until it finishes.
+Activity explains each result directly, including when no newer version is available. Those
+applications count as unchanged, not failed. Real failures include the provider's output in
+Activity; log files in `%LOCALAPPDATA%\Kapsel\Logs` remain available as a backup.
+Result classification follows the documented [winget return codes](https://github.com/microsoft/winget-cli/blob/master/doc/windows/package-manager/winget/returnCodes.md)
+and [Chocolatey upgrade exit codes](https://docs.chocolatey.org/en-us/choco/commands/upgrade/#exit-codes).
+Chocolatey's explicit no-update code requires its enhanced exit codes feature; otherwise its
+successful console output is shown in Activity without assuming that an update was installed.
+Some packages require administrator privileges; Kapsel does not automatically elevate the entire app.
+
 ## Architecture
 
 ```txt
@@ -224,9 +237,13 @@ npm run dev
 npm run validate
 npm test
 npm run test:ui
+npm run test:ui:packages
 npm run docs:catalog:check
 npm run build:check
 ```
+
+`test:ui:packages` exercises confirmation, background progress, success, and failure in the real
+window using a simulated provider. It does not install or update any software.
 
 Remove generated release directories and ZIP files without touching other `dist` content:
 
@@ -247,8 +264,13 @@ dist/releases/Kapsel-<version>-windows/
 dist/releases/Kapsel-<version>-windows.zip
 ```
 
-The executable depends on the adjacent `src` and `assets` directories. Distribute the generated
-ZIP archive, not `Kapsel.exe` by itself.
+The default release is a script-based ZIP. Extract the complete archive and open `kapsel.cmd`.
+Keep the adjacent `src` and `assets` directories. No executable compilation dependency is needed.
+
+An optional unsigned executable can still be built with `npm run build:exe`; it also depends on
+the adjacent directories. This is an opt-in development artifact, excluded from automated releases.
+Script distribution does not provide publisher certification or guarantee that Windows security
+software will allow the application.
 
 ## Release Automation
 
@@ -256,8 +278,8 @@ Update `package.json` and `ProductMetadata.psm1` to the same version, commit the
 a matching semantic-version tag:
 
 ```powershell
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.2.5
+git push origin v1.2.5
 ```
 
 The Quality workflow validates source changes and pull requests. The Release workflow runs the
@@ -274,7 +296,7 @@ same checks, builds the distributable ZIP, and publishes it only from a matching
 
 ## Project Status
 
-`v1.2.0` is the clean-architecture and desktop-shell release. Kapsel remains focused on one job:
+`v1.2.5` improves package execution, progress reporting, and Activity readability. Kapsel remains focused on one job:
 making a curated Windows application catalog easy to search, install, and update from one native
 interface.
 

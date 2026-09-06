@@ -3,10 +3,12 @@
 param(
     [string] $OutputDirectory,
     [switch] $InstallBuildDependency,
-    [switch] $SkipExecutable
+    [switch] $SkipExecutable,
+    [switch] $IncludeExecutable
 )
 
 $ErrorActionPreference = 'Stop'
+if ($SkipExecutable -and $IncludeExecutable) { throw 'Choose either SkipExecutable or IncludeExecutable.' }
 
 $projectRoot = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
@@ -116,6 +118,7 @@ if (Test-Path -LiteralPath $assetsPath) {
 
 Copy-Item -LiteralPath $launcherPath -Destination (Join-Path $releaseRoot 'kapsel.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'kapsel.cmd') -Destination (Join-Path $releaseRoot 'kapsel.cmd') -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'install.ps1') -Destination (Join-Path $releaseRoot 'install.ps1') -Force
 
 $readmePath = Join-Path $projectRoot '.github\README.md'
 if (Test-Path -LiteralPath $readmePath) {
@@ -127,7 +130,7 @@ if (Test-Path -LiteralPath $catalogDocumentPath) {
     Copy-Item -LiteralPath $catalogDocumentPath -Destination (Join-Path $releaseRoot 'CATALOG.md') -Force
 }
 
-if (-not $SkipExecutable) {
+if ($IncludeExecutable) {
     $ps2exeCommand = Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue
     if ($null -eq $ps2exeCommand -and $InstallBuildDependency) {
         Install-Module -Name ps2exe -Scope CurrentUser -Force -AllowClobber
@@ -136,7 +139,7 @@ if (-not $SkipExecutable) {
     }
 
     if ($null -eq $ps2exeCommand) {
-        throw 'Invoke-ps2exe was not found. Install ps2exe or run .\build.ps1 -InstallBuildDependency.'
+        throw 'Invoke-ps2exe was not found. Install ps2exe or run .\build.ps1 -IncludeExecutable -InstallBuildDependency.'
     }
 
     $buildTemp = Join-Path $OutputDirectory 'temp'

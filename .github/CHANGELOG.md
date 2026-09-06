@@ -3,6 +3,20 @@
 This file records user-visible and architectural changes. Release dates are added when a version is
 published; unreleased work is identified explicitly.
 
+## 1.2.5 - Package Operations and Readability (unreleased)
+
+- Fixed the install/update confirmation error that closed the application.
+- Run package operations in the background with per-application progress and elapsed time.
+- Prevent overlapping batches and closing the window during package execution.
+- Explain no-update and already-installed results in Activity without marking them as failures.
+- Show provider error details and batch summaries directly in Activity, retaining backup logs.
+- Wrap context-panel text with automatic heights, larger type, and clearer section headings.
+- Preserve the Activity reading position when new messages arrive.
+- Default release archives to the PowerShell and CMD launchers; keep executable builds opt-in.
+- Use STA launchers and preserve startup errors for inspection.
+- Add background-operation, provider-result, and simulated package UI regression coverage.
+- Make the test command fail when the required Pester version is missing or tests fail.
+
 ## 1.2.0 - Clean Architecture and Desktop Shell
 
 - Reorganized production code into Domain, Application, Infrastructure, Presentation, and Shared

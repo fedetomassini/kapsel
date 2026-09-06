@@ -40,13 +40,29 @@ function New-KapselShellView {
     $status.Margin = New-Object System.Windows.Forms.Padding(0, 1, 0, 0)
     $status.Padding = New-Object System.Windows.Forms.Padding(12, 0, 12, 0)
     $status.BackColor = $colors.Window
-    $status.ColumnCount = 2
+    $status.ColumnCount = 4
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 150)))
+    [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 80)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
     $statusLabel = New-KapselLabel -Text 'Ready' -Size 7 -Color $colors.Muted -Height 28 -Dock ([System.Windows.Forms.DockStyle]::Fill)
     $versionLabel = New-KapselLabel -Text "$($Metadata.Name) $($Metadata.Version)" -Size 7 -Color $colors.Subtle -Height 28 -Dock ([System.Windows.Forms.DockStyle]::Fill) -TextAlign ([System.Drawing.ContentAlignment]::MiddleRight)
     $status.Controls.Add($statusLabel, 0, 0)
-    $status.Controls.Add($versionLabel, 1, 0)
+    $batchProgress = New-Object System.Windows.Forms.ProgressBar
+    $batchProgress.Name = 'KapselBatchProgress'
+    $batchProgress.AccessibleName = 'Completed applications'
+    $batchProgress.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $batchProgress.Margin = New-Object System.Windows.Forms.Padding(6)
+    $batchProgress.Visible = $false
+    $currentProgress = New-Object System.Windows.Forms.ProgressBar
+    $currentProgress.AccessibleName = 'Current application running'
+    $currentProgress.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $currentProgress.Margin = New-Object System.Windows.Forms.Padding(6)
+    $currentProgress.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+    $currentProgress.Visible = $false
+    $status.Controls.Add($batchProgress, 1, 0)
+    $status.Controls.Add($currentProgress, 2, 0)
+    $status.Controls.Add($versionLabel, 3, 0)
 
     $windowChrome = New-KapselWindowTitleBar -Form $Form -Metadata $Metadata
     $shell.Controls.Add($windowChrome.Panel, 0, 0)
@@ -60,6 +76,8 @@ function New-KapselShellView {
     return [PSCustomObject] @{
         Panel       = $shell
         StatusLabel = $statusLabel
+        BatchProgress = $batchProgress
+        CurrentProgress = $currentProgress
         WindowChrome = $windowChrome
     }
 }
