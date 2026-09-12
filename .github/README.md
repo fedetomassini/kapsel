@@ -8,9 +8,9 @@ Kapsel is a native Windows application for installing and updating a curated sof
 through `winget` or Chocolatey. It is written in PowerShell and Windows Forms, requires no web
 runtime, and keeps package operations explicit and reviewable.
 
-Version `1.2.5` adds responsive background operations, visible package progress, readable context
-panels, and clear results for applications with no available updates. Releases use a script-based
-ZIP by default, with executable builds available as an explicit option.
+Version `1.2.6` adds responsive background operations, visible package progress, installed-app
+detection, and update availability. Releases use a script-based ZIP by default, with executable
+builds available as an explicit option.
 
 ## What Kapsel Does
 
@@ -18,6 +18,8 @@ ZIP by default, with executable builds available as an explicit option.
 - Searches by application name, key, category, description, or package identifier.
 - Filters applications by category and Free and Open Source Software status.
 - Preserves selections while the user searches or changes category.
+- Detects installed applications and available updates for the selected provider in the background.
+- Filters the catalog to installed applications or those with updates available.
 - Installs or updates multiple applications after explicit confirmation.
 - Runs package operations in the background with a completed-applications progress bar, an active-operation indicator, and elapsed time.
 - Uses `winget` or Chocolatey only when the provider is installed and supported by the package.
@@ -50,6 +52,7 @@ The desktop shell follows a compact three-pane model:
 | Window bar | Application identity, window drag area, minimize, maximize, restore, and close. |
 | Left navigation | Product identity, active package provider, categories, and version context. |
 | Catalog workspace | Search, FOSS filtering, catalog metrics, selection, install, and update actions. |
+| Inventory filters | All, Installed, and Updates views with provider-specific counts and app status. |
 | Context panel | Activity, current features, and release changes. |
 | Status bar | Visible catalog count and package-operation status. |
 
@@ -184,6 +187,11 @@ Chocolatey's explicit no-update code requires its enhanced exit codes feature; o
 successful console output is shown in Activity without assuming that an update was installed.
 Some packages require administrator privileges; Kapsel does not automatically elevate the entire app.
 
+Inventory results are provider-specific and refreshed when you switch provider, press Refresh, or
+finish a package batch. A missing match is shown as **Not detected**, not proof that the software
+is absent from Windows: winget export only includes packages it can match to a configured source.
+When update lookup fails, installed state remains visible and the update check is marked unavailable.
+
 ## Architecture
 
 ```txt
@@ -209,14 +217,17 @@ src/
   modules/
     Application/
       CatalogService.psm1
+      InventoryService.psm1
       PackageService.psm1
     Domain/
       ApplicationCatalog.psm1
+      PackageInventory.psm1
       PackageOperation.psm1
     Infrastructure/
       AssetProvider.psm1
       JsonCatalogRepository.psm1
       PackageManagerAdapter.psm1
+      PackageInventoryAdapter.psm1
     Presentation/WinForms/
       ApplicationGridView.psm1
       CatalogView.psm1
@@ -226,9 +237,13 @@ src/
       SidebarView.psm1
       Theme.psm1
       WindowChrome.psm1
+      InventoryRunner.psm1
     Shared/
       ProductMetadata.psm1
 ```
+
+The bundled Font Awesome Free icon font is stored in `assets/fonts`; its license is included as
+`assets/fonts/LICENSE-Font-Awesome.txt`. Icons render locally and do not require a runtime download.
 
 ## Development
 
@@ -278,8 +293,8 @@ Update `package.json` and `ProductMetadata.psm1` to the same version, commit the
 a matching semantic-version tag:
 
 ```powershell
-git tag v1.2.5
-git push origin v1.2.5
+git tag v1.2.6
+git push origin v1.2.6
 ```
 
 The Quality workflow validates source changes and pull requests. The Release workflow runs the
@@ -296,7 +311,7 @@ same checks, builds the distributable ZIP, and publishes it only from a matching
 
 ## Project Status
 
-`v1.2.5` improves package execution, progress reporting, and Activity readability. Kapsel remains focused on one job:
+`v1.2.6` improves package execution, progress reporting, inventory visibility, and Activity readability. Kapsel remains focused on one job:
 making a curated Windows application catalog easy to search, install, and update from one native
 interface.
 

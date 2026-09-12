@@ -5,12 +5,16 @@ Describe 'Kapsel architecture' {
         foreach ($path in @(
             'src\modules\Domain\ApplicationCatalog.psm1',
             'src\modules\Domain\PackageOperation.psm1',
+            'src\modules\Domain\PackageInventory.psm1',
             'src\modules\Application\CatalogService.psm1',
             'src\modules\Application\PackageService.psm1',
+            'src\modules\Application\InventoryService.psm1',
             'src\modules\Infrastructure\JsonCatalogRepository.psm1',
             'src\modules\Infrastructure\PackageManagerAdapter.psm1',
+            'src\modules\Infrastructure\PackageInventoryAdapter.psm1',
             'src\modules\Presentation\WinForms\Gui.psm1',
             'src\modules\Presentation\WinForms\WindowChrome.psm1',
+            'src\modules\Presentation\WinForms\InventoryRunner.psm1',
             'src\modules\Shared\ProductMetadata.psm1'
         )) {
             Test-Path -LiteralPath (Join-Path $ProjectRoot $path) | Should Be $true
@@ -29,6 +33,11 @@ Describe 'Kapsel architecture' {
         $package.scripts.'clean:releases' | Should Match 'Clean-Releases\.ps1'
         $package.scripts.'docs:catalog' | Should Match 'Generate-CatalogMarkdown\.ps1'
         $package.scripts.'docs:catalog:check' | Should Match 'Generate-CatalogMarkdown\.ps1 -Check'
+    }
+
+    It 'bundles the icon font and its redistribution license' {
+        Test-Path -LiteralPath (Join-Path $ProjectRoot 'assets\fonts\fa-solid-900.ttf') | Should Be $true
+        Test-Path -LiteralPath (Join-Path $ProjectRoot 'assets\fonts\LICENSE-Font-Awesome.txt') | Should Be $true
     }
 
     It 'keeps domain modules independent from UI and external adapters' {

@@ -10,7 +10,8 @@ function New-KapselApplicationTable {
     [CmdletBinding()]
     param(
         [object[]] $Applications = @(),
-        [string[]] $SelectedKeys = @()
+        [string[]] $SelectedKeys = @(),
+        [hashtable] $InventoryStates = @{}
     )
 
     $table = New-Object System.Data.DataTable
@@ -20,12 +21,23 @@ function New-KapselApplicationTable {
     [void] $table.Columns.Add('Category', [string])
     [void] $table.Columns.Add('Providers', [string])
     [void] $table.Columns.Add('FOSS', [string])
+    [void] $table.Columns.Add('Status', [string])
     [void] $table.Columns.Add('Description', [string])
 
     foreach ($application in @($Applications)) {
         $providers = @()
         if ($application.WingetId) { $providers += 'winget' }
         if ($application.ChocoId) { $providers += 'choco' }
+        $inventory = $InventoryStates[[string] $application.Key]
+        $status = if ($null -eq $inventory) { 'Not checked' } else {
+            switch ([string] $inventory.Status) {
+                'Installed' { 'Installed' }
+                'UpdateAvailable' { 'Update available' }
+                'NotDetected' { 'Not detected' }
+                'Unsupported' { 'Unavailable' }
+                default { 'Not checked' }
+            }
+        }
         [void] $table.Rows.Add(
             ($SelectedKeys -contains [string] $application.Key),
             $application.Key,
@@ -33,6 +45,7 @@ function New-KapselApplicationTable {
             $application.Category,
             ($providers -join ' / '),
             $(if ($application.Foss) { 'Yes' } else { 'No' }),
+            $status,
             $application.Description
         )
     }
@@ -78,6 +91,18 @@ function New-KapselApplicationGrid {
     $grid.DefaultCellStyle.Font = New-KapselFont -Size 8
     $grid.DefaultCellStyle.Padding = New-Object System.Windows.Forms.Padding(4, 0, 4, 0)
     $grid.AlternatingRowsDefaultCellStyle.BackColor = $colors.Sidebar
+    $grid.Add_CellFormatting({
+        param($sender, $eventArgs)
+
+        if ($eventArgs.RowIndex -lt 0 -or $sender.Columns[$eventArgs.ColumnIndex].Name -ne 'Status') { return }
+        $colors = Get-KapselUiColors
+        switch ([string] $eventArgs.Value) {
+            'Update available' { $eventArgs.CellStyle.ForeColor = $colors.Warning }
+            'Installed' { $eventArgs.CellStyle.ForeColor = $colors.Success }
+            'Not detected' { $eventArgs.CellStyle.ForeColor = $colors.Muted }
+            default { $eventArgs.CellStyle.ForeColor = $colors.Subtle }
+        }
+    })
     Add-KapselGridScrollbar -Grid $grid
     return $grid
 }
@@ -228,10 +253,11 @@ function Initialize-KapselApplicationGridColumns {
 
     foreach ($column in @(
         [PSCustomObject] @{ Name = 'Key'; Header = 'Key'; Width = 70; Visible = $false; Fill = $false },
-        [PSCustomObject] @{ Name = 'Name'; Header = 'Application'; Width = 190; Visible = $true; Fill = $false },
-        [PSCustomObject] @{ Name = 'Category'; Header = 'Category'; Width = 115; Visible = $true; Fill = $false },
-        [PSCustomObject] @{ Name = 'Providers'; Header = 'Providers'; Width = 105; Visible = $true; Fill = $false },
-        [PSCustomObject] @{ Name = 'FOSS'; Header = 'FOSS'; Width = 54; Visible = $true; Fill = $false },
+        [PSCustomObject] @{ Name = 'Name'; Header = 'Application'; Width = 168; Visible = $true; Fill = $false },
+        [PSCustomObject] @{ Name = 'Category'; Header = 'Category'; Width = 115; Visible = $false; Fill = $false },
+        [PSCustomObject] @{ Name = 'Providers'; Header = 'Providers'; Width = 96; Visible = $true; Fill = $false },
+        [PSCustomObject] @{ Name = 'FOSS'; Header = 'FOSS'; Width = 49; Visible = $true; Fill = $false },
+        [PSCustomObject] @{ Name = 'Status'; Header = 'Status'; Width = 125; Visible = $true; Fill = $false },
         [PSCustomObject] @{ Name = 'Description'; Header = 'Description'; Width = 320; Visible = $true; Fill = $true }
     )) {
         $gridColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
@@ -253,11 +279,28 @@ function Set-KapselApplicationGrid {
     param(
         [Parameter(Mandatory = $true)] [System.Windows.Forms.DataGridView] $Grid,
         [object[]] $Applications = @(),
-        [string[]] $SelectedKeys = @()
+        [string[]] $SelectedKeys = @(),
+        [hashtable] $InventoryStates = @{}
     )
 
     Initialize-KapselApplicationGridColumns -Grid $Grid
-    $Grid.DataSource = New-KapselApplicationTable -Applications $Applications -SelectedKeys $SelectedKeys
+    $Grid.DataSource = New-KapselApplicationTable -Applications $Applications -SelectedKeys $SelectedKeys -InventoryStates $InventoryStates
+    foreach ($row in $Grid.Rows) {
+        $key = [string] $row.Cells['Key'].Value
+        $state = $InventoryStates[$key]
+        if ($null -eq $state) {
+            $row.Cells['Status'].ToolTipText = 'Inventory has not been checked yet.'
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace([string] $state.Version)) {
+            $row.Cells['Status'].ToolTipText = "Installed version: $($state.Version)"
+        }
+        elseif ($state.Status -eq 'NotDetected') {
+            $row.Cells['Status'].ToolTipText = 'Not detected by the selected package provider.'
+        }
+        elseif ($state.Status -eq 'Unsupported') {
+            $row.Cells['Status'].ToolTipText = 'This application is unavailable through the selected provider.'
+        }
+    }
 }
 
 function Get-KapselVisibleSelectionKeys {

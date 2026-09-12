@@ -5,6 +5,64 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $script:KapselFontFamily = $null
+$script:KapselIconFonts = $null
+
+function Get-KapselIconCodepoint {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)] [string] $Name)
+
+    switch ($Name) {
+        'Refresh' { return 0xF021 }
+        'Install' { return 0xF019 }
+        'Update' { return 0xF0AA }
+        'Website' { return 0xF08E }
+        'Select' { return 0xF00C }
+        'Clear' { return 0xF00D }
+        'All' { return 0xF03A }
+        'Installed' { return 0xF058 }
+        'Updates' { return 0xF0AA }
+        'Activity' { return 0xF03A }
+        'Features' { return 0xF005 }
+        'Changes' { return 0xF1DA }
+        default { return 0 }
+    }
+}
+
+function New-KapselIconBitmap {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [string] $Name,
+        [System.Drawing.Color] $Color = (Get-KapselUiColors).Text
+    )
+
+    $codepoint = Get-KapselIconCodepoint -Name $Name
+    if ($codepoint -eq 0) { return $null }
+    if ($null -eq $script:KapselIconFonts) {
+        $projectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
+        $fontPath = Join-Path $projectRoot 'assets\fonts\fa-solid-900.ttf'
+        if (-not (Test-Path -LiteralPath $fontPath -PathType Leaf)) { return $null }
+        $script:KapselIconFonts = New-Object System.Drawing.Text.PrivateFontCollection
+        $script:KapselIconFonts.AddFontFile($fontPath)
+    }
+
+    $bitmap = New-Object System.Drawing.Bitmap(17, 17)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $font = New-Object System.Drawing.Font($script:KapselIconFonts.Families[0], 12, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+    try {
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+        $bounds = New-Object System.Drawing.Rectangle(0, 0, 17, 17)
+        $flags = [System.Windows.Forms.TextFormatFlags]::HorizontalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor
+            [System.Windows.Forms.TextFormatFlags]::NoPadding
+        [System.Windows.Forms.TextRenderer]::DrawText($graphics, [string][char] $codepoint, $font, $bounds, $Color, $flags)
+    }
+    finally {
+        $font.Dispose()
+        $graphics.Dispose()
+    }
+    return $bitmap
+}
 
 function Get-KapselUiColors {
     [CmdletBinding()]
@@ -103,7 +161,8 @@ function New-KapselButton {
         [int] $Width = 120,
         [System.Drawing.Color] $BackColor = (Get-KapselUiColors).Surface,
         [System.Drawing.Color] $ForeColor = (Get-KapselUiColors).Text,
-        [System.Drawing.Color] $BorderColor = (Get-KapselUiColors).Border
+        [System.Drawing.Color] $BorderColor = (Get-KapselUiColors).Border,
+        [string] $Icon
     )
 
     $colors = Get-KapselUiColors
@@ -121,6 +180,19 @@ function New-KapselButton {
     $button.ForeColor = $ForeColor
     $button.Font = New-KapselFont -Size 8
     $button.UseVisualStyleBackColor = $false
+    if (-not [string]::IsNullOrWhiteSpace($Icon)) {
+        $button.Image = New-KapselIconBitmap -Name $Icon -Color $ForeColor
+        if ($null -ne $button.Image) {
+            $button.TextImageRelation = [System.Windows.Forms.TextImageRelation]::ImageBeforeText
+            $button.ImageAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+            $button.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+            $button.Padding = New-Object System.Windows.Forms.Padding(3, 0, 3, 0)
+            $button.Add_Disposed({
+                param($sender, $eventArgs)
+                if ($null -ne $sender.Image) { $sender.Image.Dispose() }
+            })
+        }
+    }
     return $button
 }
 
@@ -314,6 +386,8 @@ function Set-KapselDarkTreeView {
 
 Export-ModuleMember -Function @(
     'Get-KapselUiColors',
+    'Get-KapselIconCodepoint',
+    'New-KapselIconBitmap',
     'Get-KapselUiFontFamily',
     'Initialize-KapselUiTheme',
     'New-KapselFont',

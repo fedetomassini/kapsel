@@ -14,6 +14,7 @@ function Get-KapselFeatureLines {
         'Curated Windows application catalog.',
         'Search by app, category, description, or package id.',
         'Focused category navigation and FOSS filtering.',
+        'Installed-app and available-update filters.',
         '',
         'OPERATIONS',
         'Batch install and update workflows.',
@@ -36,6 +37,7 @@ function Get-KapselChangelogLines {
         "VERSION $($Metadata.Version)",
         'Fixed install and update confirmation crashes.',
         'Responsive background operations with visible progress.',
+        'Installed-app detection and update availability.',
         'No available updates are reported as unchanged, not failed.',
         'Provider error details and summaries appear in Activity.',
         'Readable wrapping text and preserved Activity reading position.',
@@ -67,7 +69,7 @@ function New-KapselContextButton {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)] [string] $Title)
 
-    $button = New-KapselButton -Text $Title
+    $button = New-KapselButton -Text $Title -Icon $Title
     $button.Name = "KapselContext$($Title)Button"
     $button.AccessibleName = "$Title section"
     $button.Dock = [System.Windows.Forms.DockStyle]::Fill

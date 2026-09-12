@@ -4,9 +4,11 @@ Set-StrictMode -Version Latest
 $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Import-Module (Join-Path $moduleRoot 'Application\CatalogService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Application\PackageService.psm1') -Force
+Import-Module (Join-Path $moduleRoot 'Application\InventoryService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\AssetProvider.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\JsonCatalogRepository.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\PackageManagerAdapter.psm1') -Force
+Import-Module (Join-Path $moduleRoot 'Infrastructure\PackageInventoryAdapter.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ApplicationGridView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'CatalogView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ContextView.psm1') -Force
@@ -15,6 +17,7 @@ Import-Module (Join-Path $PSScriptRoot 'SidebarView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Theme.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'WindowChrome.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'PackageOperationRunner.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'InventoryRunner.psm1') -Force
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -75,6 +78,9 @@ function Show-KapselGui {
     $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow }
     $operationTimer = New-Object System.Windows.Forms.Timer
     $operationTimer.Interval = 200
+    $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false }
+    $inventoryTimer = New-Object System.Windows.Forms.Timer
+    $inventoryTimer.Interval = 250
 
     $getSelectedApplications = {
         return @($catalog | Where-Object { $selectedKeys.Contains([string] $_.Key) })
@@ -82,7 +88,7 @@ function Show-KapselGui {
 
     $updateActionState = {
         $count = $selectedKeys.Count
-        $catalogView.SelectionLabel.Text = if ($count -eq 1) { '1 application selected' } else { "$count applications selected" }
+        $catalogView.SelectionLabel.Text = "$count selected"
         $hasProvider = -not [string]::IsNullOrWhiteSpace([string] $sidebar.ProviderState.Value)
         $catalogView.InstallButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
         $catalogView.UpgradeButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
@@ -112,7 +118,10 @@ function Show-KapselGui {
             FossOnly     = $catalogView.FossOnly.Checked
         }
         $filtered = @(Find-KapselApplications @filterParameters)
-        Set-KapselApplicationGrid -Grid $catalogView.Grid -Applications $filtered -SelectedKeys ([string[]] @($selectedKeys))
+        $activeSnapshot = if ($null -ne $inventory.Snapshot -and $inventory.Snapshot.Provider -eq $sidebar.ProviderState.Value) { $inventory.Snapshot } else { $null }
+        $states = if ($null -ne $activeSnapshot) { $activeSnapshot.States } else { @{} }
+        $filtered = @(Find-KapselInventoryApplications -Applications $filtered -Snapshot $activeSnapshot -Filter $inventory.Filter)
+        Set-KapselApplicationGrid -Grid $catalogView.Grid -Applications $filtered -SelectedKeys ([string[]] @($selectedKeys)) -InventoryStates $states
         $catalogView.Title.Text = if ($category -eq 'All') { 'All applications' } else { $category }
         $catalogView.Description.Text = if ($filtered.Count -eq 1) {
             '1 application matches the current view.'
@@ -120,9 +129,101 @@ function Show-KapselGui {
         else {
             "$($filtered.Count) applications match the current view."
         }
-        if (-not $operation.Busy) { $shell.StatusLabel.Text = "$($filtered.Count) visible / $($catalog.Count) total" }
+        if (-not $operation.Busy -and $shell.StatusLabel.Text -notmatch '^(Install|Upgrade) finished:') {
+            $shell.StatusLabel.Text = "$($filtered.Count) visible / $($catalog.Count) total"
+        }
         & $updateActionState
     }
+
+    $setInventoryFilter = {
+        param([ValidateSet('All', 'Installed', 'Updates')] [string] $Filter)
+
+        $inventory.Filter = $Filter
+        $colors = Get-KapselUiColors
+        foreach ($item in @(
+            [PSCustomObject] @{ Name = 'All'; Button = $catalogView.AllButton },
+            [PSCustomObject] @{ Name = 'Installed'; Button = $catalogView.InstalledButton },
+            [PSCustomObject] @{ Name = 'Updates'; Button = $catalogView.UpdatesButton }
+        )) {
+            $active = $item.Name -eq $Filter
+            $item.Button.BackColor = if ($active) { $colors.AccentDark } else { $colors.Surface }
+            $item.Button.ForeColor = if ($active) { $colors.Accent } else { $colors.Text }
+            $item.Button.FlatAppearance.BorderColor = if ($active) { $colors.Accent } else { $colors.Border }
+        }
+        & $refreshCatalog
+    }
+
+    $startInventoryScan = {
+        $provider = [string] $sidebar.ProviderState.Value
+        if ([string]::IsNullOrWhiteSpace($provider)) {
+            $inventory.Snapshot = $null
+            $catalogView.InventorySummary.Text = 'No package provider available'
+            & $refreshCatalog
+            return
+        }
+        if ($null -ne $inventory.Scan -and $inventory.Scan.Provider -ne $provider) {
+            $inventory.Scan.Cancellation.Cancel()
+            $inventory.Snapshot = $null
+            $catalogView.InventorySummary.Text = "Waiting to check $provider..."
+            & $refreshCatalog
+        }
+        if ($operation.Busy -or $null -ne $inventory.Scan) {
+            $inventory.Pending = $true
+            return
+        }
+        $inventory.Pending = $false
+        $inventory.Snapshot = $null
+        $catalogView.InventorySummary.Text = "Checking $provider..."
+        & $refreshCatalog
+        try {
+            $inventory.Scan = Start-KapselInventoryScan -Applications $catalog -Provider $provider
+            $inventoryTimer.Start()
+        }
+        catch {
+            $catalogView.InventorySummary.Text = 'Inventory unavailable'
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Inventory check failed: $($_.Exception.Message)" -Level Warning
+        }
+    }
+
+    $inventoryTimer.Add_Tick({
+        if ($null -eq $inventory.Scan -or -not $inventory.Scan.Handle.IsCompleted) { return }
+        $inventoryTimer.Stop()
+        $completedScan = $inventory.Scan
+        $inventory.Scan = $null
+        try {
+            $result = @($completedScan.Worker.EndInvoke($completedScan.Handle)) | Select-Object -First 1
+            if ($completedScan.Worker.Streams.Error.Count -gt 0) {
+                throw ($completedScan.Worker.Streams.Error | Out-String)
+            }
+            if ($null -eq $result -or $null -eq $result.Snapshot) { throw 'The inventory worker returned no result.' }
+            if ($completedScan.Provider -eq [string] $sidebar.ProviderState.Value) {
+                $inventory.Snapshot = $result.Snapshot
+                $catalogView.InventorySummary.Text = "$($result.Snapshot.InstalledCount) installed  |  $($result.Snapshot.UpdateCount) updates"
+                if (-not $result.Snapshot.UpdatesChecked) {
+                    $catalogView.InventorySummary.Text += '  |  update check unavailable'
+                }
+                & $refreshCatalog
+                if (-not [string]::IsNullOrWhiteSpace([string] $result.Warning)) {
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $result.Warning -Level Warning
+                }
+            }
+        }
+        catch {
+            if (-not $completedScan.Cancellation.IsCancellationRequested) {
+                $inventory.Snapshot = $null
+                $catalogView.InventorySummary.Text = 'Inventory unavailable'
+                Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Inventory check failed: $($_.Exception.Message)" -Level Warning
+                & $refreshCatalog
+            }
+        }
+        finally {
+            $completedScan.Worker.Dispose()
+            $completedScan.Cancellation.Dispose()
+            if ($inventory.Pending -or $completedScan.Provider -ne [string] $sidebar.ProviderState.Value) {
+                & $startInventoryScan
+            }
+        }
+    })
 
     $runPackageAction = {
         param([ValidateSet('Install', 'Upgrade')] [string] $Action)
@@ -158,6 +259,11 @@ function Show-KapselGui {
             [System.Windows.Forms.MessageBoxIcon]::Question
         )
         if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+        if ($null -ne $inventory.Scan) {
+            $inventory.Scan.Cancellation.Cancel()
+            $inventory.Pending = $true
+        }
 
         try {
             $operation.Busy = $true
@@ -255,6 +361,7 @@ function Show-KapselGui {
                 $sidebar.WingetButton.Enabled = $providerStatus.WingetAvailable
                 $sidebar.ChocoButton.Enabled = $providerStatus.ChocoAvailable
                 & $updateActionState
+                & $startInventoryScan
             }
         }
     })
@@ -266,7 +373,10 @@ function Show-KapselGui {
         }
     })
 
-    $catalogView.RefreshButton.Add_Click($refreshCatalog)
+    $catalogView.RefreshButton.Add_Click({ & $startInventoryScan })
+    $catalogView.AllButton.Add_Click({ & $setInventoryFilter 'All' })
+    $catalogView.InstalledButton.Add_Click({ & $setInventoryFilter 'Installed' })
+    $catalogView.UpdatesButton.Add_Click({ & $setInventoryFilter 'Updates' })
     $catalogView.SearchBox.Add_TextChanged($refreshCatalog)
     $catalogView.FossOnly.Add_CheckedChanged($refreshCatalog)
     $catalogView.Grid.Add_CurrentCellDirtyStateChanged({
@@ -285,10 +395,12 @@ function Show-KapselGui {
     $sidebar.WingetButton.Add_Click({
         Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message 'Package provider changed to winget.'
         & $updateActionState
+        & $startInventoryScan
     })
     $sidebar.ChocoButton.Add_Click({
         Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message 'Package provider changed to choco.'
         & $updateActionState
+        & $startInventoryScan
     })
 
     $catalogView.SelectAllButton.Add_Click({
@@ -343,11 +455,20 @@ function Show-KapselGui {
 
     & $refreshCatalog
     Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Catalog loaded with $($catalog.Count) applications." -Level Success
+    $form.Add_Shown({ & $startInventoryScan })
     try {
         [void] $form.ShowDialog()
     }
     finally {
         [System.Windows.Forms.Application]::remove_ThreadException($threadExceptionHandler)
+        $inventoryTimer.Stop()
+        $inventoryTimer.Dispose()
+        if ($null -ne $inventory.Scan) {
+            $inventory.Scan.Cancellation.Cancel()
+            [void] $inventory.Scan.Handle.AsyncWaitHandle.WaitOne(5000)
+            $inventory.Scan.Worker.Dispose()
+            $inventory.Scan.Cancellation.Dispose()
+        }
         $operationTimer.Dispose()
         $form.Dispose()
     }

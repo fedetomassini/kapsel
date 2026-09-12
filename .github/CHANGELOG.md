@@ -3,10 +3,13 @@
 This file records user-visible and architectural changes. Release dates are added when a version is
 published; unreleased work is identified explicitly.
 
-## 1.2.5 - Package Operations and Readability (unreleased)
+## 1.2.6 - Package Operations and Readability (2026-09-12)
 
 - Fixed the install/update confirmation error that closed the application.
 - Run package operations in the background with per-application progress and elapsed time.
+- Detect installed applications and available updates in the background for winget and Chocolatey.
+- Add provider-specific inventory states, installed/update filters, and refresh after package actions.
+- Add locally bundled Font Awesome Free icons to actions, filters, and context tabs.
 - Prevent overlapping batches and closing the window during package execution.
 - Explain no-update and already-installed results in Activity without marking them as failures.
 - Show provider error details and batch summaries directly in Activity, retaining backup logs.

@@ -4,6 +4,8 @@ param(
     [int] $TimeoutSeconds = 10,
     [string] $ScreenshotPath,
     [string] $LauncherPath,
+    [int] $WindowWidth,
+    [int] $WindowHeight,
     [switch] $ExercisePackageActions
 )
 
@@ -87,9 +89,24 @@ namespace KapselSmoke {
 
         [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
     }
 }
 "@
+    }
+    if ($WindowWidth -gt 0 -and $WindowHeight -gt 0) {
+        if (-not [KapselSmoke.NativeMethods]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, 0, 0, $WindowWidth, $WindowHeight, 0x0006)) {
+            throw 'Could not resize the Kapsel window for the UI smoke test.'
+        }
+        Start-Sleep -Milliseconds 300
     }
     $processCondition = New-Object System.Windows.Automation.PropertyCondition(
         [System.Windows.Automation.AutomationElement]::ProcessIdProperty,
@@ -163,6 +180,25 @@ namespace KapselSmoke {
         [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $providerButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
     }
 
+    if (-not $ExercisePackageActions -and $null -ne $providerButton -and $providerButton.Current.IsEnabled) {
+        $inventoryDeadline = [DateTime]::UtcNow.AddSeconds(30)
+        do {
+            Start-Sleep -Milliseconds 250
+            $controls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+            $inventoryReady = $controls | Where-Object { $_.Current.Name -match '^\d+ installed  \|  \d+ updates' } | Select-Object -First 1
+            $inventoryFailed = $controls | Where-Object { $_.Current.Name -eq 'Inventory unavailable' } | Select-Object -First 1
+        } while ($null -eq $inventoryReady -and $null -eq $inventoryFailed -and [DateTime]::UtcNow -lt $inventoryDeadline)
+        if ($null -eq $inventoryReady) { throw 'Inventory did not finish successfully.' }
+
+        $installedButton = $controls | Where-Object { $_.Current.Name -eq 'Installed' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        $updatesButton = $controls | Where-Object { $_.Current.Name -eq 'Updates' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        $allButton = $controls | Where-Object { $_.Current.Name -eq 'All' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        foreach ($button in @($installedButton, $updatesButton, $allButton)) {
+            if ($null -eq $button) { throw 'An inventory filter button is missing.' }
+            [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $button.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        }
+    }
+
     Start-Sleep -Milliseconds 500
     $process.Refresh()
     if ($process.HasExited) {
@@ -209,7 +245,10 @@ namespace KapselSmoke {
                 $currentControls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
                 $summary = $currentControls | Where-Object { $_.Current.Name -eq $expected } | Select-Object -First 1
             } while ($null -eq $summary -and [DateTime]::UtcNow -lt $deadline)
-            if ($null -eq $summary) { throw "Missing package result: $expected" }
+            if ($null -eq $summary) {
+                $details = @($currentControls | ForEach-Object { $_.Current.Name } | Where-Object { $_ -match 'Install|Upgrade|inventory|Inventory|error|Error|Failed|completed|interrupted' })
+                throw "Missing package result: $expected. Visible details: $($details -join ' | ')"
+            }
             if ($action.Button -eq 'Update') {
                 if (-not ($currentControls | Where-Object { $_.Current.Name -like '*No newer version is available*' })) { throw 'Activity did not explain the unchanged application.' }
                 if (-not ($currentControls | Where-Object { $_.Current.Name -like '*Simulated provider failure*' })) { throw 'Provider failure details are missing from Activity.' }
@@ -254,6 +293,8 @@ namespace KapselSmoke {
     )
 
     if (-not [string]::IsNullOrWhiteSpace($ScreenshotPath)) {
+        [void] [KapselSmoke.NativeMethods]::SetForegroundWindow($process.MainWindowHandle)
+        Start-Sleep -Milliseconds 400
         Add-Type -AssemblyName System.Drawing
         $resolvedScreenshotPath = if ([System.IO.Path]::IsPathRooted($ScreenshotPath)) {
             $ScreenshotPath
@@ -275,7 +316,16 @@ namespace KapselSmoke {
         $bitmap = New-Object System.Drawing.Bitmap($width, $height)
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         try {
-            $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object System.Drawing.Size($width, $height)))
+            $hdc = $graphics.GetHdc()
+            try {
+                $captured = [KapselSmoke.NativeMethods]::PrintWindow($process.MainWindowHandle, $hdc, 2)
+            }
+            finally {
+                $graphics.ReleaseHdc($hdc)
+            }
+            if (-not $captured) {
+                throw 'Kapsel could not be captured with PrintWindow.'
+            }
             $bitmap.Save($resolvedScreenshotPath, [System.Drawing.Imaging.ImageFormat]::Png)
         }
         finally {
