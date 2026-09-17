@@ -1,6 +1,6 @@
 {
 	"name": "kapsel",
-	"version": "1.2.6",
+	"version": "1.3.0",
 	"private": true,
 	"description": "Windows application installer and updater built with PowerShell Windows Forms.",
 	"scripts": {

@@ -103,20 +103,22 @@ function New-KapselCatalogView {
     $inventoryFilters.Margin = New-Object System.Windows.Forms.Padding(0)
     $inventoryFilters.Padding = New-Object System.Windows.Forms.Padding(0, 4, 0, 6)
     $inventoryFilters.BackColor = $colors.Main
-    $inventoryFilters.ColumnCount = 4
+    $inventoryFilters.ColumnCount = 5
     $inventoryFilters.RowCount = 1
-    foreach ($width in @(70, 112, 112)) {
+    foreach ($width in @(70, 112, 112, 112)) {
         [void] $inventoryFilters.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, $width)))
     }
     [void] $inventoryFilters.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     $allButton = New-KapselButton -Text 'All' -Width 68 -Icon 'All'
+    $favoritesButton = New-KapselButton -Text 'Favorites' -Width 110 -Icon 'Favorite'
     $installedButton = New-KapselButton -Text 'Installed' -Width 110 -Icon 'Installed'
     $updatesButton = New-KapselButton -Text 'Updates' -Width 110 -Icon 'Updates'
-    foreach ($button in @($allButton, $installedButton, $updatesButton)) {
+    foreach ($button in @($allButton, $favoritesButton, $installedButton, $updatesButton)) {
         $button.Dock = [System.Windows.Forms.DockStyle]::Fill
         $button.Margin = New-Object System.Windows.Forms.Padding(0, 0, 6, 0)
     }
     $allButton.Name = 'KapselFilterAll'
+    $favoritesButton.Name = 'KapselFilterFavorites'
     $installedButton.Name = 'KapselFilterInstalled'
     $updatesButton.Name = 'KapselFilterUpdates'
     $allButton.BackColor = $colors.AccentDark
@@ -124,9 +126,10 @@ function New-KapselCatalogView {
     $allButton.FlatAppearance.BorderColor = $colors.Accent
     $inventorySummary = New-KapselLabel -Text 'Checking installed apps...' -Size 7.5 -Color $colors.Muted -Height 32 -Dock ([System.Windows.Forms.DockStyle]::Fill) -TextAlign ([System.Drawing.ContentAlignment]::MiddleRight)
     $inventoryFilters.Controls.Add($allButton, 0, 0)
-    $inventoryFilters.Controls.Add($installedButton, 1, 0)
-    $inventoryFilters.Controls.Add($updatesButton, 2, 0)
-    $inventoryFilters.Controls.Add($inventorySummary, 3, 0)
+    $inventoryFilters.Controls.Add($favoritesButton, 1, 0)
+    $inventoryFilters.Controls.Add($installedButton, 2, 0)
+    $inventoryFilters.Controls.Add($updatesButton, 3, 0)
+    $inventoryFilters.Controls.Add($inventorySummary, 4, 0)
 
     $grid = New-KapselApplicationGrid
 
@@ -148,10 +151,11 @@ function New-KapselCatalogView {
 
     $selectAllButton = New-KapselButton -Text 'Select visible' -Width 120 -Icon 'Select'
     $clearButton = New-KapselButton -Text 'Clear' -Width 70 -Icon 'Clear'
+    $favoriteButton = New-KapselButton -Text 'Favorite' -Width 104 -Icon 'Favorite'
     $openLinkButton = New-KapselButton -Text 'Website' -Width 84 -Icon 'Website'
     $upgradeButton = New-KapselButton -Text 'Update' -Width 84 -Icon 'Update'
     $installButton = New-KapselButton -Text 'Install' -Width 84 -Icon 'Install' -BackColor $colors.Accent -ForeColor $colors.Window -BorderColor $colors.Accent
-    $actionButtons.Controls.AddRange(@($selectAllButton, $clearButton, $openLinkButton, $upgradeButton, $installButton))
+    $actionButtons.Controls.AddRange(@($selectAllButton, $clearButton, $favoriteButton, $openLinkButton, $upgradeButton, $installButton))
     $actions.Controls.Add($selectionLabel, 0, 0)
     $actions.Controls.Add($actionButtons, 1, 0)
 
@@ -170,6 +174,7 @@ function New-KapselCatalogView {
         FossOnly        = $fossOnly
         RefreshButton   = $refreshButton
         AllButton       = $allButton
+        FavoritesButton = $favoritesButton
         InstalledButton = $installedButton
         UpdatesButton   = $updatesButton
         InventorySummary = $inventorySummary
@@ -177,6 +182,7 @@ function New-KapselCatalogView {
         SelectionLabel  = $selectionLabel
         SelectAllButton = $selectAllButton
         ClearButton     = $clearButton
+        FavoriteButton  = $favoriteButton
         OpenLinkButton  = $openLinkButton
         UpgradeButton   = $upgradeButton
         InstallButton   = $installButton

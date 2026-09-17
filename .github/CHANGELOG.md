@@ -3,6 +3,11 @@
 This file records user-visible and architectural changes. Release dates are added when a version is
 published; unreleased work is identified explicitly.
 
+## 1.3.0 - Persistent Favorites (2026-09-17)
+
+- Add persistent application favorites with a dedicated catalog filter.
+- Store user preferences outside the installation directory under the current Windows profile.
+
 ## 1.2.6 - Package Operations and Readability (2026-09-12)
 
 - Fixed the install/update confirmation error that closed the application.

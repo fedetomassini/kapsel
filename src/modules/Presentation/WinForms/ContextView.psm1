@@ -15,6 +15,7 @@ function Get-KapselFeatureLines {
         'Search by app, category, description, or package id.',
         'Focused category navigation and FOSS filtering.',
         'Installed-app and available-update filters.',
+        'Persistent favorites stored per Windows user.',
         '',
         'OPERATIONS',
         'Batch install and update workflows.',
@@ -35,6 +36,7 @@ function Get-KapselChangelogLines {
 
     return @(
         "VERSION $($Metadata.Version)",
+        'Persistent favorites with a dedicated catalog view.',
         'Fixed install and update confirmation crashes.',
         'Responsive background operations with visible progress.',
         'Installed-app detection and update availability.',

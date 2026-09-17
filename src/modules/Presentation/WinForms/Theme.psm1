@@ -21,6 +21,7 @@ function Get-KapselIconCodepoint {
         'All' { return 0xF03A }
         'Installed' { return 0xF058 }
         'Updates' { return 0xF0AA }
+        'Favorite' { return 0xF005 }
         'Activity' { return 0xF03A }
         'Features' { return 0xF005 }
         'Changes' { return 0xF1DA }

@@ -7,7 +7,7 @@ function Get-KapselProductMetadata {
 
     return [PSCustomObject] @{
         Name        = 'Kapsel'
-        Version     = '1.2.6'
+        Version     = '1.3.0'
         Creator     = 'Federico Tomassini'
         Description = 'Curated application installer and updater for Windows'
     }

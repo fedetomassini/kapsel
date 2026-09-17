@@ -192,9 +192,10 @@ namespace KapselSmoke {
 
         $installedButton = $controls | Where-Object { $_.Current.Name -eq 'Installed' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
         $updatesButton = $controls | Where-Object { $_.Current.Name -eq 'Updates' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        $favoritesButton = $controls | Where-Object { $_.Current.Name -eq 'Favorites' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
         $allButton = $controls | Where-Object { $_.Current.Name -eq 'All' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
-        foreach ($button in @($installedButton, $updatesButton, $allButton)) {
-            if ($null -eq $button) { throw 'An inventory filter button is missing.' }
+        foreach ($button in @($installedButton, $updatesButton, $favoritesButton, $allButton)) {
+            if ($null -eq $button) { throw 'A catalog filter button is missing.' }
             [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $button.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
         }
     }

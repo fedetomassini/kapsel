@@ -5,10 +5,12 @@ $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Import-Module (Join-Path $moduleRoot 'Application\CatalogService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Application\PackageService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Application\InventoryService.psm1') -Force
+Import-Module (Join-Path $moduleRoot 'Application\PreferenceService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\AssetProvider.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\JsonCatalogRepository.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\PackageManagerAdapter.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\PackageInventoryAdapter.psm1') -Force
+Import-Module (Join-Path $moduleRoot 'Infrastructure\JsonPreferencesRepository.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ApplicationGridView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'CatalogView.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ContextView.psm1') -Force
@@ -44,6 +46,16 @@ function Show-KapselGui {
     $catalogDocument = Read-KapselApplicationCatalogDocument
     $snapshot = New-KapselCatalogSnapshot -CatalogDocument $catalogDocument
     $catalog = @($snapshot.Applications)
+    $favoriteKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $preferencesWarning = ''
+    try {
+        foreach ($key in @(Get-KapselFavorites -Applications $catalog -PreferencesReader { Read-KapselUserPreferences })) {
+            [void] $favoriteKeys.Add([string] $key)
+        }
+    }
+    catch {
+        $preferencesWarning = $_.Exception.Message
+    }
     $providerStatus = Get-KapselPackageProviderStatus
     $defaultCategory = Get-KapselDefaultCategory -Categories $snapshot.Categories
     $selectedCategory = [PSCustomObject] @{ Value = $defaultCategory }
@@ -92,6 +104,12 @@ function Show-KapselGui {
         $hasProvider = -not [string]::IsNullOrWhiteSpace([string] $sidebar.ProviderState.Value)
         $catalogView.InstallButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
         $catalogView.UpgradeButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
+        $currentKey = Get-KapselCurrentApplicationKey -Grid $catalogView.Grid
+        $catalogView.FavoriteButton.Enabled = -not [string]::IsNullOrWhiteSpace($currentKey) -and -not $operation.Busy
+        $catalogView.FavoriteButton.Text = if (-not [string]::IsNullOrWhiteSpace($currentKey) -and $favoriteKeys.Contains($currentKey)) {
+            'Unfavorite'
+        }
+        else { 'Favorite' }
     }
 
     $synchronizeVisibleSelection = {
@@ -118,11 +136,15 @@ function Show-KapselGui {
             FossOnly     = $catalogView.FossOnly.Checked
         }
         $filtered = @(Find-KapselApplications @filterParameters)
+        if ($inventory.Filter -eq 'Favorites') {
+            $filtered = @($filtered | Where-Object { $favoriteKeys.Contains([string] $_.Key) })
+        }
         $activeSnapshot = if ($null -ne $inventory.Snapshot -and $inventory.Snapshot.Provider -eq $sidebar.ProviderState.Value) { $inventory.Snapshot } else { $null }
         $states = if ($null -ne $activeSnapshot) { $activeSnapshot.States } else { @{} }
-        $filtered = @(Find-KapselInventoryApplications -Applications $filtered -Snapshot $activeSnapshot -Filter $inventory.Filter)
+        $inventoryFilter = if ($inventory.Filter -in @('Installed', 'Updates')) { $inventory.Filter } else { 'All' }
+        $filtered = @(Find-KapselInventoryApplications -Applications $filtered -Snapshot $activeSnapshot -Filter $inventoryFilter)
         Set-KapselApplicationGrid -Grid $catalogView.Grid -Applications $filtered -SelectedKeys ([string[]] @($selectedKeys)) -InventoryStates $states
-        $catalogView.Title.Text = if ($category -eq 'All') { 'All applications' } else { $category }
+        $catalogView.Title.Text = if ($inventory.Filter -eq 'Favorites') { 'Favorite applications' } elseif ($category -eq 'All') { 'All applications' } else { $category }
         $catalogView.Description.Text = if ($filtered.Count -eq 1) {
             '1 application matches the current view.'
         }
@@ -136,12 +158,13 @@ function Show-KapselGui {
     }
 
     $setInventoryFilter = {
-        param([ValidateSet('All', 'Installed', 'Updates')] [string] $Filter)
+        param([ValidateSet('All', 'Favorites', 'Installed', 'Updates')] [string] $Filter)
 
         $inventory.Filter = $Filter
         $colors = Get-KapselUiColors
         foreach ($item in @(
             [PSCustomObject] @{ Name = 'All'; Button = $catalogView.AllButton },
+            [PSCustomObject] @{ Name = 'Favorites'; Button = $catalogView.FavoritesButton },
             [PSCustomObject] @{ Name = 'Installed'; Button = $catalogView.InstalledButton },
             [PSCustomObject] @{ Name = 'Updates'; Button = $catalogView.UpdatesButton }
         )) {
@@ -375,6 +398,7 @@ function Show-KapselGui {
 
     $catalogView.RefreshButton.Add_Click({ & $startInventoryScan })
     $catalogView.AllButton.Add_Click({ & $setInventoryFilter 'All' })
+    $catalogView.FavoritesButton.Add_Click({ & $setInventoryFilter 'Favorites' })
     $catalogView.InstalledButton.Add_Click({ & $setInventoryFilter 'Installed' })
     $catalogView.UpdatesButton.Add_Click({ & $setInventoryFilter 'Updates' })
     $catalogView.SearchBox.Add_TextChanged($refreshCatalog)
@@ -385,6 +409,7 @@ function Show-KapselGui {
         }
     })
     $catalogView.Grid.Add_CellValueChanged({ & $synchronizeVisibleSelection })
+    $catalogView.Grid.Add_CurrentCellChanged({ & $updateActionState })
 
     $sidebar.CategoryTree.Add_AfterSelect({
         if ($null -ne $sidebar.CategoryTree.SelectedNode -and $null -ne $sidebar.CategoryTree.SelectedNode.Tag) {
@@ -418,6 +443,26 @@ function Show-KapselGui {
             if (-not $row.IsNewRow) { $row.Cells['Selected'].Value = $false }
         }
         & $updateActionState
+    })
+    $catalogView.FavoriteButton.Add_Click({
+        $key = Get-KapselCurrentApplicationKey -Grid $catalogView.Grid
+        if ([string]::IsNullOrWhiteSpace($key)) { return }
+        $isFavorite = -not $favoriteKeys.Contains($key)
+        try {
+            $updated = @(Set-KapselFavorite -FavoriteKeys @($favoriteKeys) -Applications $catalog -Key $key -IsFavorite $isFavorite -PreferencesWriter {
+                param($preferences)
+                Write-KapselUserPreferences -Preferences $preferences
+            })
+            $favoriteKeys.Clear()
+            foreach ($favoriteKey in $updated) { [void] $favoriteKeys.Add([string] $favoriteKey) }
+            $application = $catalog | Where-Object { $_.Key -eq $key } | Select-Object -First 1
+            $verb = if ($isFavorite) { 'Added to favorites' } else { 'Removed from favorites' }
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$verb`: $($application.Name)." -Level Success
+            & $refreshCatalog
+        }
+        catch {
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Favorites could not be saved: $($_.Exception.Message)" -Level Error
+        }
     })
     $catalogView.InstallButton.Add_Click({ & $runPackageAction 'Install' })
     $catalogView.UpgradeButton.Add_Click({ & $runPackageAction 'Upgrade' })
@@ -455,6 +500,9 @@ function Show-KapselGui {
 
     & $refreshCatalog
     Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Catalog loaded with $($catalog.Count) applications." -Level Success
+    if (-not [string]::IsNullOrWhiteSpace($preferencesWarning)) {
+        Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $preferencesWarning -Level Warning
+    }
     $form.Add_Shown({ & $startInventoryScan })
     try {
         [void] $form.ShowDialog()

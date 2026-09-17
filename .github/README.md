@@ -8,15 +8,16 @@ Kapsel is a native Windows application for installing and updating a curated sof
 through `winget` or Chocolatey. It is written in PowerShell and Windows Forms, requires no web
 runtime, and keeps package operations explicit and reviewable.
 
-Version `1.2.6` adds responsive background operations, visible package progress, installed-app
-detection, and update availability. Releases use a script-based ZIP by default, with executable
-builds available as an explicit option.
+Version `1.3.0` adds persistent application favorites on top of responsive background operations,
+visible package progress, installed-app detection, and update availability. Releases use a
+script-based ZIP by default, with executable builds available as an explicit option.
 
 ## What Kapsel Does
 
 - Loads a curated catalog of Windows applications from `src/applications.json`.
 - Searches by application name, key, category, description, or package identifier.
 - Filters applications by category and Free and Open Source Software status.
+- Saves favorite applications and provides a dedicated Favorites view across sessions.
 - Preserves selections while the user searches or changes category.
 - Detects installed applications and available updates for the selected provider in the background.
 - Filters the catalog to installed applications or those with updates available.
@@ -192,6 +193,10 @@ finish a package batch. A missing match is shown as **Not detected**, not proof 
 is absent from Windows: winget export only includes packages it can match to a configured source.
 When update lookup fails, installed state remains visible and the update check is marked unavailable.
 
+Favorites are stored per Windows user in `%LOCALAPPDATA%\Kapsel\preferences.json`. The file uses a
+versioned JSON format and is written atomically, so installing a new Kapsel release does not replace
+personal preferences.
+
 ## Architecture
 
 ```txt
@@ -219,13 +224,16 @@ src/
       CatalogService.psm1
       InventoryService.psm1
       PackageService.psm1
+      PreferenceService.psm1
     Domain/
       ApplicationCatalog.psm1
       PackageInventory.psm1
       PackageOperation.psm1
+      UserPreferences.psm1
     Infrastructure/
       AssetProvider.psm1
       JsonCatalogRepository.psm1
+      JsonPreferencesRepository.psm1
       PackageManagerAdapter.psm1
       PackageInventoryAdapter.psm1
     Presentation/WinForms/
@@ -293,8 +301,8 @@ Update `package.json` and `ProductMetadata.psm1` to the same version, commit the
 a matching semantic-version tag:
 
 ```powershell
-git tag v1.2.6
-git push origin v1.2.6
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 The Quality workflow validates source changes and pull requests. The Release workflow runs the
@@ -311,7 +319,7 @@ same checks, builds the distributable ZIP, and publishes it only from a matching
 
 ## Project Status
 
-`v1.2.6` improves package execution, progress reporting, inventory visibility, and Activity readability. Kapsel remains focused on one job:
+`v1.3.0` adds persistent favorites while retaining reliable package execution, inventory visibility, and Activity reporting. Kapsel remains focused on one job:
 making a curated Windows application catalog easy to search, install, and update from one native
 interface.
 
