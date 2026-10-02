@@ -14,6 +14,7 @@ $projectRoot = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $projectRoot 'dist'
 }
+$OutputDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 
 $launcherPath = Join-Path $projectRoot 'kapsel.ps1'
 $sourcePath = Join-Path $projectRoot 'src'
@@ -120,15 +121,20 @@ Copy-Item -LiteralPath $launcherPath -Destination (Join-Path $releaseRoot 'kapse
 Copy-Item -LiteralPath (Join-Path $projectRoot 'kapsel.cmd') -Destination (Join-Path $releaseRoot 'kapsel.cmd') -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'install.ps1') -Destination (Join-Path $releaseRoot 'install.ps1') -Force
 
-$readmePath = Join-Path $projectRoot '.github\README.md'
-if (Test-Path -LiteralPath $readmePath) {
-    Copy-Item -LiteralPath $readmePath -Destination (Join-Path $releaseRoot 'README.md') -Force
+foreach ($document in @(
+    'README.md', 'CATALOG.md', 'CHANGELOG.md', 'CONTRIBUTING.md',
+    'SUPPORT.md', 'CODE_OF_CONDUCT.md', 'LICENSE', 'package.json', '.node-version'
+)) {
+    Copy-Item -LiteralPath (Join-Path $projectRoot $document) -Destination (Join-Path $releaseRoot $document) -Force
 }
+Copy-KapselDirectory -Source (Join-Path $projectRoot 'docs') -Destination (Join-Path $releaseRoot 'docs')
+# The README image must keep the same relative path in a checkout and an extracted release.
+$documentationAssets = Join-Path $releaseRoot '.github\assets'
+New-Item -ItemType Directory -Path $documentationAssets -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot '.github\assets\kapsel.png') -Destination $documentationAssets -Force
 
-$catalogDocumentPath = Join-Path $projectRoot '.github\CATALOG.md'
-if (Test-Path -LiteralPath $catalogDocumentPath) {
-    Copy-Item -LiteralPath $catalogDocumentPath -Destination (Join-Path $releaseRoot 'CATALOG.md') -Force
-}
+& node (Join-Path $projectRoot 'scripts\Validate-Documentation.mjs') --root $releaseRoot
+if ($LASTEXITCODE -ne 0) { throw 'Packaged documentation validation failed.' }
 
 if ($IncludeExecutable) {
     $ps2exeCommand = Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue
@@ -181,6 +187,21 @@ $releaseItems | Compress-Archive -DestinationPath $zipPath -Force
 
 if (-not (Test-Path -LiteralPath $zipPath)) {
     throw "Release archive was not created: $zipPath"
+}
+
+# Compare the archive to the staged tree so missing docs/assets fail before publication.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+try {
+    $entries = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in $archive.Entries) { [void] $entries.Add($entry.FullName.Replace('\', '/')) }
+    foreach ($file in @(Get-ChildItem -LiteralPath $releaseRoot -File -Recurse -Force)) {
+        $relativePath = $file.FullName.Substring($releaseRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
+        if (-not $entries.Contains($relativePath)) { throw "Release archive is missing: $relativePath" }
+    }
+}
+finally {
+    $archive.Dispose()
 }
 
 Write-Host "Release package: $releaseRoot"

@@ -26,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version-file: '.node-version'
 
       - name: Validate PowerShell syntax
         run: npm run validate
@@ -39,6 +39,12 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Test documentation tooling
+        run: npm run test:tooling
+
+      - name: Validate documentation and versions
+        run: npm run docs:check
 
       - name: Verify generated application catalog
         run: npm run docs:catalog:check

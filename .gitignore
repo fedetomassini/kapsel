@@ -5,12 +5,15 @@ TestResults/
 *.ps1xml
 
 # Build artifacts
+node_modules/
 dist/
 build/
 *.exe
 *.zip
 
 # Local/editor files
+/ROADMAP.md
+/AGENTS.md
 .vscode/
 .idea/
 *.log

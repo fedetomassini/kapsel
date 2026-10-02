@@ -77,7 +77,7 @@ $catalogDocument = Read-KapselApplicationCatalogDocument
 $snapshot = New-KapselCatalogSnapshot -CatalogDocument $catalogDocument
 $markdown = New-KapselCatalogMarkdown -Snapshot $snapshot
 $resolvedOutputPath = if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    Join-Path $projectRoot '.github\CATALOG.md'
+    Join-Path $projectRoot 'CATALOG.md'
 }
 elseif ([System.IO.Path]::IsPathRooted($OutputPath)) {
     $OutputPath

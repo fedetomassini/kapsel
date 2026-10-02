@@ -23,6 +23,9 @@ catalog-only or documentation-only pull request.
 
 - [ ] `npm run validate`
 - [ ] `npm test`
+- [ ] `npm run test:tooling`
+- [ ] `npm run docs:check`
+- [ ] `npm run docs:catalog:check`
 - [ ] `npm run build:check`
 - [ ] UI smoke test, when presentation changed
 - [ ] Full release build, when packaging changed
@@ -44,6 +47,11 @@ Include before/after screenshots for interface changes.
 ## Documentation
 
 List updated documents or explain why no documentation change is required.
+
+## Acceptance and Compatibility
+
+Describe acceptance evidence. Note any impact
+on stable catalog keys, preferences/schema versions, provider contracts, or packaged files.
 
 ## Related Issue
 

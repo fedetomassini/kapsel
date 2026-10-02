@@ -36,7 +36,9 @@ body:
       options:
         - Catalog
         - Package operations
+        - Inventory and providers
         - Interface
+        - Preferences and application sets
         - Packaging and releases
         - Documentation
     validations:

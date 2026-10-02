@@ -1,2 +1,5 @@
 blank_issues_enabled: false
-contact_links: []
+contact_links:
+  - name: Documentation and troubleshooting
+    url: https://github.com/fedetomassini/kapsel/blob/main/docs/README.md
+    about: Read setup, operation, and troubleshooting guides before filing a report.
