@@ -14,7 +14,8 @@ function ConvertFrom-KapselWingetExport {
         foreach ($package in @($source.Packages)) {
             $id = [string] $package.PackageIdentifier
             if ([string]::IsNullOrWhiteSpace($id)) { continue }
-            $packages[$id] = [string] $package.Version
+            $version = $package.PSObject.Properties['Version']
+            $packages[$id] = if ($null -ne $version) { [string] $version.Value } else { '' }
         }
     }
     return $packages

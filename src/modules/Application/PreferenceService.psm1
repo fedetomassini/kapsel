@@ -10,13 +10,8 @@ function Get-KapselFavorites {
         [Parameter(Mandatory = $true)] [scriptblock] $PreferencesReader
     )
 
-    $preferences = & $PreferencesReader
-    $storedKeys = if ($null -ne $preferences -and $null -ne $preferences.PSObject.Properties['FavoriteKeys']) {
-        @($preferences.FavoriteKeys)
-    }
-    else { @() }
-
-    return @(ConvertTo-KapselFavoriteKeys -FavoriteKeys $storedKeys -AvailableKeys @($Applications.Key))
+    $preferences = ConvertFrom-KapselPreferencesDocument -Document (& $PreferencesReader)
+    return @(ConvertTo-KapselFavoriteKeys -FavoriteKeys $preferences.FavoriteKeys -AvailableKeys @($Applications.Key))
 }
 
 function Save-KapselFavorites {

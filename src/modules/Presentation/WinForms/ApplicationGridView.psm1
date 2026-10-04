@@ -24,6 +24,9 @@ function New-KapselApplicationTable {
     [void] $table.Columns.Add('Status', [string])
     [void] $table.Columns.Add('Description', [string])
 
+    $selection = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($key in $SelectedKeys) { [void] $selection.Add($key) }
+
     foreach ($application in @($Applications)) {
         $providers = @()
         if ($application.WingetId) { $providers += 'winget' }
@@ -39,7 +42,7 @@ function New-KapselApplicationTable {
             }
         }
         [void] $table.Rows.Add(
-            ($SelectedKeys -contains [string] $application.Key),
+            $selection.Contains([string] $application.Key),
             $application.Key,
             $application.Name,
             $application.Category,
@@ -59,6 +62,9 @@ function New-KapselApplicationGrid {
 
     $colors = Get-KapselUiColors
     $grid = New-Object System.Windows.Forms.DataGridView
+    $grid.Name = 'KapselApplicationGrid'
+    $grid.AccessibleName = 'Application catalog'
+    $grid.AccessibleDescription = 'Use arrow keys to focus an application and Space to toggle its selection.'
     $grid.Dock = [System.Windows.Forms.DockStyle]::Fill
     $grid.AutoGenerateColumns = $false
     $grid.AllowUserToAddRows = $false
@@ -100,10 +106,18 @@ function New-KapselApplicationGrid {
             'Update available' { $eventArgs.CellStyle.ForeColor = $colors.Warning }
             'Installed' { $eventArgs.CellStyle.ForeColor = $colors.Success }
             'Not detected' { $eventArgs.CellStyle.ForeColor = $colors.Muted }
-            default { $eventArgs.CellStyle.ForeColor = $colors.Subtle }
+            default { $eventArgs.CellStyle.ForeColor = $colors.Muted }
         }
     })
     Add-KapselGridScrollbar -Grid $grid
+    $grid.Add_KeyDown({
+        param($sender, $eventArgs)
+        if ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Space -and $null -ne $sender.CurrentRow) {
+            $cell = $sender.CurrentRow.Cells['Selected']
+            $cell.Value = $cell.Value -ne $true
+            $eventArgs.SuppressKeyPress = $true
+        }
+    })
     return $grid
 }
 
@@ -177,6 +191,7 @@ function Add-KapselGridScrollbar {
         Thumb      = $thumb
         Dragging   = $false
         DragOffset = 0
+        Updating   = $false
     }
     $Grid.Tag = $state
     $track.Tag = $state
@@ -244,11 +259,12 @@ function Initialize-KapselApplicationGridColumns {
 
     $selectedColumn = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
     $selectedColumn.Name = 'Selected'
-    $selectedColumn.HeaderText = ''
+    $selectedColumn.HeaderText = 'Select'
     $selectedColumn.DataPropertyName = 'Selected'
-    $selectedColumn.Width = 38
+    $selectedColumn.Width = 48
     $selectedColumn.ReadOnly = $false
     $selectedColumn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $selectedColumn.HeaderCell.ToolTipText = 'Select applications. Space toggles the focused row.'
     [void] $Grid.Columns.Add($selectedColumn)
 
     foreach ($column in @(
@@ -284,22 +300,88 @@ function Set-KapselApplicationGrid {
     )
 
     Initialize-KapselApplicationGridColumns -Grid $Grid
-    $Grid.DataSource = New-KapselApplicationTable -Applications $Applications -SelectedKeys $SelectedKeys -InventoryStates $InventoryStates
-    foreach ($row in $Grid.Rows) {
-        $key = [string] $row.Cells['Key'].Value
-        $state = $InventoryStates[$key]
-        if ($null -eq $state) {
-            $row.Cells['Status'].ToolTipText = 'Inventory has not been checked yet.'
+    [void] $Grid.EndEdit()
+    $currentKey = Get-KapselCurrentApplicationKey -Grid $Grid
+    $columnIndex = if ($null -ne $Grid.CurrentCell) { $Grid.CurrentCell.ColumnIndex } else { 0 }
+    $topKey = if ($Grid.FirstDisplayedScrollingRowIndex -ge 0) { [string] $Grid.Rows[$Grid.FirstDisplayedScrollingRowIndex].Cells['Key'].Value } else { $null }
+    $sortColumn = $Grid.SortedColumn
+    $sortOrder = $Grid.SortOrder
+    $previousTable = $Grid.DataSource
+    $wasUpdating = $Grid.Tag.Updating
+    $Grid.Tag.Updating = $true
+    $Grid.SuspendLayout()
+    try {
+        $Grid.DataSource = New-KapselApplicationTable -Applications $Applications -SelectedKeys $SelectedKeys -InventoryStates $InventoryStates
+        if ($null -ne $sortColumn -and $sortOrder -ne [System.Windows.Forms.SortOrder]::None) {
+            $direction = if ($sortOrder -eq [System.Windows.Forms.SortOrder]::Descending) { [System.ComponentModel.ListSortDirection]::Descending } else { [System.ComponentModel.ListSortDirection]::Ascending }
+            $Grid.Sort($sortColumn, $direction)
         }
-        elseif (-not [string]::IsNullOrWhiteSpace([string] $state.Version)) {
-            $row.Cells['Status'].ToolTipText = "Installed version: $($state.Version)"
+        $currentIndex = -1
+        $topIndex = -1
+        foreach ($row in $Grid.Rows) {
+            $key = [string] $row.Cells['Key'].Value
+            if ($key -eq $currentKey) { $currentIndex = $row.Index }
+            if ($key -eq $topKey) { $topIndex = $row.Index }
+            $state = $InventoryStates[$key]
+            if ($null -eq $state) {
+                $row.Cells['Status'].ToolTipText = 'Inventory has not been checked yet.'
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace([string] $state.Version)) {
+                $row.Cells['Status'].ToolTipText = "Installed version: $($state.Version)"
+                if (-not $state.UpdateCheckSucceeded) { $row.Cells['Status'].ToolTipText += '. Update check unavailable.' }
+            }
+            elseif ($state.Status -eq 'NotDetected') {
+                $row.Cells['Status'].ToolTipText = 'Not detected by the selected package provider.'
+            }
+            elseif ($state.Status -eq 'Unsupported') {
+                $row.Cells['Status'].ToolTipText = 'This application is unavailable through the selected provider.'
+            }
+            $row.Cells['Description'].ToolTipText = [string] $row.Cells['Description'].Value
         }
-        elseif ($state.Status -eq 'NotDetected') {
-            $row.Cells['Status'].ToolTipText = 'Not detected by the selected package provider.'
+        if ($currentIndex -ge 0) { $Grid.CurrentCell = $Grid.Rows[$currentIndex].Cells[$columnIndex] }
+        if ($topIndex -ge 0) { $Grid.FirstDisplayedScrollingRowIndex = $topIndex }
+    }
+    finally {
+        $Grid.ResumeLayout($true)
+        $Grid.Tag.Updating = $wasUpdating
+        if ($previousTable -is [System.Data.DataTable] -and $previousTable -ne $Grid.DataSource) { $previousTable.Dispose() }
+        Update-KapselGridScrollbar -Grid $Grid
+    }
+}
+
+function Set-KapselVisibleSelection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [System.Windows.Forms.DataGridView] $Grid,
+        [Parameter(Mandatory = $true)] [bool] $Selected
+    )
+
+    [void] $Grid.EndEdit()
+    $currentKey = Get-KapselCurrentApplicationKey -Grid $Grid
+    $columnIndex = if ($null -ne $Grid.CurrentCell) { $Grid.CurrentCell.ColumnIndex } else { 0 }
+    $topKey = if ($Grid.FirstDisplayedScrollingRowIndex -ge 0) { [string] $Grid.Rows[$Grid.FirstDisplayedScrollingRowIndex].Cells['Key'].Value } else { $null }
+    $wasUpdating = $Grid.Tag.Updating
+    $Grid.Tag.Updating = $true
+    try {
+        $table = [System.Data.DataTable] $Grid.DataSource
+        # Suppress binding notifications as well as UI reconciliation, then publish one table reset.
+        $table.BeginLoadData()
+        try {
+            foreach ($row in $table.Rows) { $row['Selected'] = $Selected }
         }
-        elseif ($state.Status -eq 'Unsupported') {
-            $row.Cells['Status'].ToolTipText = 'This application is unavailable through the selected provider.'
+        finally { $table.EndLoadData() }
+        $topIndex = -1
+        foreach ($row in $Grid.Rows) {
+            $key = [string] $row.Cells['Key'].Value
+            if ($key -eq $currentKey) { $Grid.CurrentCell = $row.Cells[$columnIndex] }
+            if ($key -eq $topKey) { $topIndex = $row.Index }
         }
+        if ($topIndex -ge 0) { $Grid.FirstDisplayedScrollingRowIndex = $topIndex }
+    }
+    finally {
+        $Grid.Tag.Updating = $wasUpdating
+        $Grid.Invalidate()
+        Update-KapselGridScrollbar -Grid $Grid
     }
 }
 
@@ -307,7 +389,7 @@ function Get-KapselVisibleSelectionKeys {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)] [System.Windows.Forms.DataGridView] $Grid)
 
-    $Grid.EndEdit()
+    [void] $Grid.EndEdit()
     return @(
         foreach ($row in $Grid.Rows) {
             if (-not $row.IsNewRow -and $row.Cells['Selected'].Value -eq $true) {
@@ -329,6 +411,7 @@ Export-ModuleMember -Function @(
     'New-KapselApplicationTable',
     'New-KapselApplicationGrid',
     'Set-KapselApplicationGrid',
+    'Set-KapselVisibleSelection',
     'Get-KapselVisibleSelectionKeys',
     'Get-KapselCurrentApplicationKey',
     'Update-KapselGridScrollbar',

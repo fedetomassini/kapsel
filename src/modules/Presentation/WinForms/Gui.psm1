@@ -46,8 +46,11 @@ function Show-KapselGui {
     $catalogDocument = Read-KapselApplicationCatalogDocument
     $snapshot = New-KapselCatalogSnapshot -CatalogDocument $catalogDocument
     $catalog = @($snapshot.Applications)
+    $applicationsByKey = @{}
+    foreach ($application in $catalog) { $applicationsByKey[[string] $application.Key] = $application }
     $favoriteKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $preferencesWarning = ''
+    $preferencesWritable = $true
     try {
         foreach ($key in @(Get-KapselFavorites -Applications $catalog -PreferencesReader { Read-KapselUserPreferences })) {
             [void] $favoriteKeys.Add([string] $key)
@@ -55,6 +58,7 @@ function Show-KapselGui {
     }
     catch {
         $preferencesWarning = $_.Exception.Message
+        $preferencesWritable = $false
     }
     $providerStatus = Get-KapselPackageProviderStatus
     $defaultCategory = Get-KapselDefaultCategory -Categories $snapshot.Categories
@@ -90,30 +94,56 @@ function Show-KapselGui {
     $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow }
     $operationTimer = New-Object System.Windows.Forms.Timer
     $operationTimer.Interval = 200
-    $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false }
+    $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false; Status = 'Checking'; Diagnostics = @{} }
     $inventoryTimer = New-Object System.Windows.Forms.Timer
     $inventoryTimer.Interval = 250
+    $viewState = [PSCustomObject] @{ VisibleApplications = @() }
+    $searchTimer = New-Object System.Windows.Forms.Timer
+    $searchTimer.Interval = 120
 
     $getSelectedApplications = {
         return @($catalog | Where-Object { $selectedKeys.Contains([string] $_.Key) })
     }
 
-    $updateActionState = {
-        $count = $selectedKeys.Count
-        $catalogView.SelectionLabel.Text = "$count selected"
-        $hasProvider = -not [string]::IsNullOrWhiteSpace([string] $sidebar.ProviderState.Value)
-        $catalogView.InstallButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
-        $catalogView.UpgradeButton.Enabled = $count -gt 0 -and $hasProvider -and -not $operation.Busy
+    $updateCurrentApplication = {
         $currentKey = Get-KapselCurrentApplicationKey -Grid $catalogView.Grid
-        $catalogView.FavoriteButton.Enabled = -not [string]::IsNullOrWhiteSpace($currentKey) -and -not $operation.Busy
+        $application = if ($currentKey) { $applicationsByKey[$currentKey] } else { $null }
+        $provider = [string] $sidebar.ProviderState.Value
+        $state = if ($currentKey -and $null -ne $inventory.Snapshot -and $inventory.Snapshot.Provider -eq $provider) { $inventory.Snapshot.States[$currentKey] } else { $null }
+        Set-KapselApplicationDetails -View $contextView -Application $application -Provider $provider -InventoryState $state -ProviderDiagnostics $inventory.Diagnostics[$provider]
+        $catalogView.FavoriteButton.Enabled = $preferencesWritable -and $null -ne $application -and -not $operation.Busy
+        $catalogView.OpenLinkButton.Enabled = $null -ne $application -and -not [string]::IsNullOrWhiteSpace($application.Link)
         $catalogView.FavoriteButton.Text = if (-not [string]::IsNullOrWhiteSpace($currentKey) -and $favoriteKeys.Contains($currentKey)) {
             'Unfavorite'
         }
         else { 'Favorite' }
+        $catalogView.FavoriteButton.AccessibleName = $catalogView.FavoriteButton.Text
+    }
+
+    $updateActionState = {
+        $count = $selectedKeys.Count
+        $visibleCount = 0
+        foreach ($application in $viewState.VisibleApplications) {
+            if ($selectedKeys.Contains([string] $application.Key)) { $visibleCount++ }
+        }
+        $provider = [string] $sidebar.ProviderState.Value
+        $supportedCount = 0
+        if ($provider) {
+            foreach ($key in $selectedKeys) {
+                $application = $applicationsByKey[$key]
+                if (($provider -eq 'winget' -and $application.WingetId) -or ($provider -eq 'choco' -and $application.ChocoId)) { $supportedCount++ }
+            }
+        }
+        $catalogView.SelectionLabel.Text = if ($count -eq 0) { '0 selected' } else { "$count selected | $visibleCount visible | $($count - $visibleCount) hidden | $supportedCount supported" }
+        $catalogView.SelectAllButton.Enabled = $viewState.VisibleApplications.Count -gt 0
+        $catalogView.ClearButton.Enabled = $count -gt 0
+        $catalogView.InstallButton.Enabled = $supportedCount -gt 0 -and -not $operation.Busy
+        $catalogView.UpgradeButton.Enabled = $supportedCount -gt 0 -and -not $operation.Busy
+        & $updateCurrentApplication
     }
 
     $synchronizeVisibleSelection = {
-        $catalogView.Grid.EndEdit()
+        [void] $catalogView.Grid.EndEdit()
         foreach ($row in $catalogView.Grid.Rows) {
             if ($row.IsNewRow) { continue }
             $key = [string] $row.Cells['Key'].Value
@@ -128,6 +158,7 @@ function Show-KapselGui {
     }
 
     $refreshCatalog = {
+        $searchTimer.Stop()
         $category = [string] $selectedCategory.Value
         $filterParameters = @{
             Applications = $catalog
@@ -143,7 +174,34 @@ function Show-KapselGui {
         $states = if ($null -ne $activeSnapshot) { $activeSnapshot.States } else { @{} }
         $inventoryFilter = if ($inventory.Filter -in @('Installed', 'Updates')) { $inventory.Filter } else { 'All' }
         $filtered = @(Find-KapselInventoryApplications -Applications $filtered -Snapshot $activeSnapshot -Filter $inventoryFilter)
+        $viewState.VisibleApplications = $filtered
         Set-KapselApplicationGrid -Grid $catalogView.Grid -Applications $filtered -SelectedKeys ([string[]] @($selectedKeys)) -InventoryStates $states
+        $catalogView.Grid.Visible = $filtered.Count -gt 0
+        $catalogView.EmptyState.Visible = $filtered.Count -eq 0
+        if ($filtered.Count -eq 0) {
+            $catalogView.EmptyState.Text = if ($inventoryFilter -ne 'All' -and $inventory.Status -eq 'Checking') {
+                "Checking $($sidebar.ProviderState.Value) inventory...`nInstalled and update results will appear when the scan finishes."
+            }
+            elseif ($inventoryFilter -ne 'All' -and $null -eq $activeSnapshot) {
+                "Inventory is unavailable for this provider.`nSee Activity, press F5 to retry, or choose All to browse the catalog."
+            }
+            elseif ($inventoryFilter -eq 'Updates' -and -not $activeSnapshot.UpdatesChecked) {
+                "The update check is unavailable.`nInstalled information is still available. Press F5 to retry."
+            }
+            elseif ($inventory.Filter -eq 'Favorites' -and $favoriteKeys.Count -eq 0) {
+                "No favorites yet.`nChoose All, focus an application, and press Favorite to save it."
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace($catalogView.SearchBox.Text) -or $catalogView.FossOnly.Checked) {
+                "No applications match these filters.`nClear search with Escape or adjust the category and FOSS filter."
+            }
+            elseif ($inventoryFilter -eq 'Updates') {
+                "No updates were reported for this view.`nChoose All to browse applications, or press F5 to check again."
+            }
+            elseif ($inventoryFilter -eq 'Installed') {
+                "No installed applications were matched in this view.`nChoose All or another category. Not detected does not mean absent."
+            }
+            else { "No applications in this view.`nChoose All or another category." }
+        }
         $catalogView.Title.Text = if ($inventory.Filter -eq 'Favorites') { 'Favorite applications' } elseif ($category -eq 'All') { 'All applications' } else { $category }
         $catalogView.Description.Text = if ($filtered.Count -eq 1) {
             '1 application matches the current view.'
@@ -180,6 +238,7 @@ function Show-KapselGui {
         $provider = [string] $sidebar.ProviderState.Value
         if ([string]::IsNullOrWhiteSpace($provider)) {
             $inventory.Snapshot = $null
+            $inventory.Status = 'Missing'
             $catalogView.InventorySummary.Text = 'No package provider available'
             & $refreshCatalog
             return
@@ -187,6 +246,7 @@ function Show-KapselGui {
         if ($null -ne $inventory.Scan -and $inventory.Scan.Provider -ne $provider) {
             $inventory.Scan.Cancellation.Cancel()
             $inventory.Snapshot = $null
+            $inventory.Status = 'Checking'
             $catalogView.InventorySummary.Text = "Waiting to check $provider..."
             & $refreshCatalog
         }
@@ -196,6 +256,7 @@ function Show-KapselGui {
         }
         $inventory.Pending = $false
         $inventory.Snapshot = $null
+        $inventory.Status = 'Checking'
         $catalogView.InventorySummary.Text = "Checking $provider..."
         & $refreshCatalog
         try {
@@ -204,7 +265,9 @@ function Show-KapselGui {
         }
         catch {
             $catalogView.InventorySummary.Text = 'Inventory unavailable'
+            $inventory.Status = 'Unavailable'
             Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Inventory check failed: $($_.Exception.Message)" -Level Warning
+            & $refreshCatalog
         }
     }
 
@@ -221,6 +284,11 @@ function Show-KapselGui {
             if ($null -eq $result -or $null -eq $result.Snapshot) { throw 'The inventory worker returned no result.' }
             if ($completedScan.Provider -eq [string] $sidebar.ProviderState.Value) {
                 $inventory.Snapshot = $result.Snapshot
+                $inventory.Status = 'Ready'
+                if ($null -ne $result.PSObject.Properties['Diagnostics'] -and $null -ne $result.Diagnostics) {
+                    $inventory.Diagnostics[$completedScan.Provider] = $result.Diagnostics
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($result.Diagnostics.Provider) $($result.Diagnostics.Version): $($result.Diagnostics.ExecutablePath)"
+                }
                 $catalogView.InventorySummary.Text = "$($result.Snapshot.InstalledCount) installed  |  $($result.Snapshot.UpdateCount) updates"
                 if (-not $result.Snapshot.UpdatesChecked) {
                     $catalogView.InventorySummary.Text += '  |  update check unavailable'
@@ -234,6 +302,7 @@ function Show-KapselGui {
         catch {
             if (-not $completedScan.Cancellation.IsCancellationRequested) {
                 $inventory.Snapshot = $null
+                $inventory.Status = 'Unavailable'
                 $catalogView.InventorySummary.Text = 'Inventory unavailable'
                 Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Inventory check failed: $($_.Exception.Message)" -Level Warning
                 & $refreshCatalog
@@ -252,6 +321,7 @@ function Show-KapselGui {
         param([ValidateSet('Install', 'Upgrade')] [string] $Action)
 
         if ($operation.Busy) { return }
+        if ($searchTimer.Enabled) { & $refreshCatalog }
         & $synchronizeVisibleSelection
         $selected = @(& $getSelectedApplications)
         if ($selected.Count -eq 0) {
@@ -275,6 +345,11 @@ function Show-KapselGui {
         if ($plan.Unsupported.Count -gt 0) {
             $message += " $($plan.Unsupported.Count) unsupported item(s) will be skipped."
         }
+        $visibleSelected = @($viewState.VisibleApplications | Where-Object { $selectedKeys.Contains([string] $_.Key) }).Count
+        $message += "`n$visibleSelected selected in this view; $($selected.Count - $visibleSelected) hidden by filters."
+        $names = @($plan.Supported | Select-Object -First 8 | ForEach-Object { $_.Name })
+        $message += "`n`n" + ($names -join "`n")
+        if ($plan.Supported.Count -gt 8) { $message += "`n...and $($plan.Supported.Count - 8) more." }
         $answer = [System.Windows.Forms.MessageBox]::Show(
             $message,
             'Confirm package action',
@@ -290,6 +365,7 @@ function Show-KapselGui {
 
         try {
             $operation.Busy = $true
+            Set-KapselContextSection -State $contextView.State -Title 'Activity'
             $operation.Action = $Action
             $operation.Total = $plan.Supported.Count
             $operation.Completed = 0
@@ -401,15 +477,34 @@ function Show-KapselGui {
     $catalogView.FavoritesButton.Add_Click({ & $setInventoryFilter 'Favorites' })
     $catalogView.InstalledButton.Add_Click({ & $setInventoryFilter 'Installed' })
     $catalogView.UpdatesButton.Add_Click({ & $setInventoryFilter 'Updates' })
-    $catalogView.SearchBox.Add_TextChanged($refreshCatalog)
+    $searchTimer.Add_Tick($refreshCatalog)
+    $catalogView.SearchBox.Add_TextChanged({
+        $searchTimer.Stop()
+        if ([string]::IsNullOrEmpty($catalogView.SearchBox.Text)) { & $refreshCatalog } else { $searchTimer.Start() }
+    })
+    $catalogView.SearchBox.Add_KeyDown({
+        param($sender, $eventArgs)
+        if ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Down) {
+            if ($searchTimer.Enabled) { & $refreshCatalog }
+            if ($catalogView.Grid.Rows.Count -gt 0) { [void] $catalogView.Grid.Focus() }
+            $eventArgs.SuppressKeyPress = $true
+        }
+    })
     $catalogView.FossOnly.Add_CheckedChanged($refreshCatalog)
     $catalogView.Grid.Add_CurrentCellDirtyStateChanged({
         if ($catalogView.Grid.IsCurrentCellDirty) {
             $catalogView.Grid.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
         }
     })
-    $catalogView.Grid.Add_CellValueChanged({ & $synchronizeVisibleSelection })
-    $catalogView.Grid.Add_CurrentCellChanged({ & $updateActionState })
+    $catalogView.Grid.Add_CellValueChanged({
+        param($sender, $eventArgs)
+        if ($sender.Tag.Updating -or $eventArgs.RowIndex -lt 0 -or $eventArgs.ColumnIndex -lt 0 -or $sender.Columns[$eventArgs.ColumnIndex].Name -ne 'Selected') { return }
+        $row = $sender.Rows[$eventArgs.RowIndex]
+        $key = [string] $row.Cells['Key'].Value
+        if ($row.Cells['Selected'].Value -eq $true) { [void] $selectedKeys.Add($key) } else { [void] $selectedKeys.Remove($key) }
+        & $updateActionState
+    })
+    $catalogView.Grid.Add_CurrentCellChanged({ if (-not $catalogView.Grid.Tag.Updating) { & $updateCurrentApplication } })
 
     $sidebar.CategoryTree.Add_AfterSelect({
         if ($null -ne $sidebar.CategoryTree.SelectedNode -and $null -ne $sidebar.CategoryTree.SelectedNode.Tag) {
@@ -429,19 +524,13 @@ function Show-KapselGui {
     })
 
     $catalogView.SelectAllButton.Add_Click({
-        foreach ($row in $catalogView.Grid.Rows) {
-            if (-not $row.IsNewRow) {
-                $row.Cells['Selected'].Value = $true
-                [void] $selectedKeys.Add([string] $row.Cells['Key'].Value)
-            }
-        }
-        & $updateActionState
+        if ($searchTimer.Enabled) { & $refreshCatalog }
+        Set-KapselVisibleSelection -Grid $catalogView.Grid -Selected $true
+        & $synchronizeVisibleSelection
     })
     $catalogView.ClearButton.Add_Click({
         $selectedKeys.Clear()
-        foreach ($row in $catalogView.Grid.Rows) {
-            if (-not $row.IsNewRow) { $row.Cells['Selected'].Value = $false }
-        }
+        Set-KapselVisibleSelection -Grid $catalogView.Grid -Selected $false
         & $updateActionState
     })
     $catalogView.FavoriteButton.Add_Click({
@@ -455,7 +544,7 @@ function Show-KapselGui {
             })
             $favoriteKeys.Clear()
             foreach ($favoriteKey in $updated) { [void] $favoriteKeys.Add([string] $favoriteKey) }
-            $application = $catalog | Where-Object { $_.Key -eq $key } | Select-Object -First 1
+            $application = $applicationsByKey[$key]
             $verb = if ($isFavorite) { 'Added to favorites' } else { 'Removed from favorites' }
             Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$verb`: $($application.Name)." -Level Success
             & $refreshCatalog
@@ -473,7 +562,7 @@ function Show-KapselGui {
             if ($selected.Count -gt 0) { $key = [string] $selected[0].Key }
         }
 
-        $application = $catalog | Where-Object { $_.Key -eq $key } | Select-Object -First 1
+        $application = $applicationsByKey[$key]
         if ($null -eq $application -or [string]::IsNullOrWhiteSpace([string] $application.Link)) {
             [System.Windows.Forms.MessageBox]::Show('Select an application with an official website.', $Metadata.Name) | Out-Null
             return
@@ -486,11 +575,28 @@ function Show-KapselGui {
     $form.Add_KeyDown({
         param($sender, $eventArgs)
         if ($eventArgs.Control -and $eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::F) {
-            $catalogView.SearchBox.Focus()
+            [void] $catalogView.SearchBox.Focus()
             $eventArgs.SuppressKeyPress = $true
         }
         elseif ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape -and -not [string]::IsNullOrEmpty($catalogView.SearchBox.Text)) {
             $catalogView.SearchBox.Clear()
+            $eventArgs.SuppressKeyPress = $true
+        }
+        elseif ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::F5) {
+            & $startInventoryScan
+            $eventArgs.SuppressKeyPress = $true
+        }
+        elseif ($eventArgs.Control -and $eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::A -and -not $catalogView.SearchBox.Focused) {
+            if ($eventArgs.Shift) { $catalogView.ClearButton.PerformClick() } else { $catalogView.SelectAllButton.PerformClick() }
+            $eventArgs.SuppressKeyPress = $true
+        }
+        elseif ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::F6) {
+            $targets = @($catalogView.SearchBox, $catalogView.Grid, $sidebar.CategoryTree, $contextView.State.Buttons['Details'])
+            $index = -1
+            for ($i = 0; $i -lt $targets.Count; $i++) { if ($targets[$i].ContainsFocus) { $index = $i; break } }
+            $next = ($index + $(if ($eventArgs.Shift) { $targets.Count - 1 } else { 1 })) % $targets.Count
+            if (-not $targets[$next].Visible) { $next = 2 }
+            [void] $targets[$next].Focus()
             $eventArgs.SuppressKeyPress = $true
         }
     })
@@ -502,8 +608,10 @@ function Show-KapselGui {
     Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Catalog loaded with $($catalog.Count) applications." -Level Success
     if (-not [string]::IsNullOrWhiteSpace($preferencesWarning)) {
         Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $preferencesWarning -Level Warning
+        $catalogView.ToolTip.SetToolTip($catalogView.FavoriteButton, $preferencesWarning)
+        Set-KapselContextSection -State $contextView.State -Title 'Activity'
     }
-    $form.Add_Shown({ & $startInventoryScan })
+    $form.Add_Shown({ [void] $catalogView.SearchBox.Focus(); & $startInventoryScan })
     try {
         [void] $form.ShowDialog()
     }
@@ -518,6 +626,8 @@ function Show-KapselGui {
             $inventory.Scan.Cancellation.Dispose()
         }
         $operationTimer.Dispose()
+        $searchTimer.Stop()
+        $searchTimer.Dispose()
         $form.Dispose()
     }
 }

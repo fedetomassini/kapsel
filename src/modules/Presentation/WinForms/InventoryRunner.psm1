@@ -21,7 +21,8 @@ function Start-KapselInventoryScan {
         $invoker = [scriptblock]::Create($InvokerSource)
         $providerInventory = & $invoker $Provider $Token
         $snapshot = Get-KapselCatalogInventory -Applications $Applications -Provider $Provider -ProviderInventory $providerInventory
-        return [PSCustomObject] @{ Snapshot = $snapshot; Warning = [string] $providerInventory.Warning }
+        $diagnostics = if ($null -ne $providerInventory.PSObject.Properties['Diagnostics']) { $providerInventory.Diagnostics } else { $null }
+        return [PSCustomObject] @{ Snapshot = $snapshot; Warning = [string] $providerInventory.Warning; Diagnostics = $diagnostics }
     }
     try {
         [void] $worker.AddScript($script.ToString()).AddArgument($moduleRoot).AddArgument($Applications).AddArgument($Provider).AddArgument($ProviderInvoker.ToString()).AddArgument($cancellation.Token)

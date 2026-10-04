@@ -20,6 +20,7 @@ runtime correctness. PSScriptAnalyzer is not currently part of the repository ga
 | `tests/Application` | Use cases, injected adapters, batch event behavior and runspace orchestration |
 | `tests/Infrastructure` | Catalog/preferences I/O and package process result contracts |
 | `tests/Architecture.Tests.ps1` | Required module organization and dependency guardrails |
+| `tests/Presentation` | Grid focus/sort/scroll, bulk selection, details and minimum-layout scale regressions |
 | `tests/Fixtures/PackageUi.ps1` | Real WinForms shell with simulated package/inventory adapters |
 
 Tests must not install/update/remove software or depend on a provider being installed. Use
@@ -49,7 +50,9 @@ a provider is present, and can fail because a configured provider/source is unav
 
 `test:ui:packages` forcibly chooses the fixture launcher. It tests install/update confirmations,
 background progress, responsive search, unchanged results and failure details without installing
-anything. It is the appropriate package UI regression gate.
+anything. Inventory is also simulated. It checks hidden selections, empty states, focused details,
+keyboard selection/search/refresh and favorite persistence in a temporary isolated profile that is
+removed after the run. The user's favorites are not modified.
 
 Capture a screenshot or exercise a packaged launcher:
 
@@ -73,8 +76,10 @@ For relevant presentation changes, record:
 - Minimum 1180 x 700 layout, maximize/restore, resize edges and multi-monitor movement.
 - 100/125/150/200% display scale and font fallback when text metrics change.
 
-Existing automated smoke tests cover only part of this matrix. Do not describe manual accessibility,
-high-DPI or Windows-version checks as automated guarantees.
+Presentation tests simulate 100/125/150/200% layout scaling and verify primary actions remain inside
+their container. Smoke tests exercise actual keyboard input and visible states. Physical display/DPI
+changes, screen-reader behavior and multi-monitor moves still require manual evidence; these tests
+do not establish a full accessibility or Windows-version certification.
 
 ## Documentation and Package Gates
 

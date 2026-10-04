@@ -17,10 +17,28 @@ keep that directory in place. See [Configuration](CONFIGURATION.md) before movin
    descriptions and package IDs literally, ignoring case.
 4. Selections survive search and category changes. Review the confirmation before running a batch,
    because selected apps can be outside the current view.
+   The selection summary distinguishes visible, hidden and provider-supported apps. **Clear all**
+   removes every selection, including hidden ones.
 5. Mark favorites and use **Favorites** to return to them later. Favorites persist per user.
 
-Use `Ctrl+F` to focus search and `Escape` to clear a non-empty search. The official-website action
+Use `Ctrl+F` to focus search and `Escape` to clear a non-empty search. Rapid search edits are coalesced
+over a short interval; clearing search or moving into the grid applies it immediately.
+The **Details** tab shows the focused app's full description, exact provider IDs, detected version,
+official website and whether its update check succeeded. Focus, sort order and scroll position are
+preserved on refresh when the relevant app remains visible. The official-website action
 opens the focused application's catalog link in your browser; it does not install that application.
+
+| Shortcut | Action |
+| --- | --- |
+| `Down` in search | Apply search and focus the catalog |
+| Arrow keys / `Space` in the catalog | Focus a row / toggle its selection |
+| `Ctrl+A` outside search | Select visible apps |
+| `Ctrl+Shift+A` outside search | Clear all selections |
+| `F5` | Refresh inventory |
+| `F6` / `Shift+F6` | Move forward/backward through the main navigation regions |
+
+Inside search, `Ctrl+A` keeps its normal text-selection behavior. Tab and Shift+Tab navigate controls;
+the confirmation dialog remains part of the keyboard journey.
 
 ## Understand Inventory
 
@@ -44,6 +62,7 @@ Provider source availability and output format affect the scan.
 
 1. Select apps and choose **Install** or **Update**.
 2. Review the provider, action and supported selection in the confirmation dialog.
+   It includes visible/hidden counts and a preview of supported application names.
 3. Confirm to start a serial batch. Unsupported selections are skipped and reported.
 4. Watch **Activity** for the current package, elapsed time and completed-app progress.
 5. Review the final result and any provider details. Inventory refreshes after the batch.

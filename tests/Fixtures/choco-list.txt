@@ -1,0 +1,5 @@
+Chocolatey v2.3.0
+firefox|130.0
+other|2.0
+
+2 packages installed.

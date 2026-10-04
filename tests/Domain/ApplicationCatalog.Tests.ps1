@@ -58,6 +58,25 @@ Describe 'Application catalog domain' {
         Test-KapselApplicationProviderSupport -Application $catalog[1] -Provider choco | Should Be $false
     }
 
+    It 'matches each search field literally and ignores case and surrounding whitespace' {
+        $catalog = @(ConvertFrom-KapselCatalogDocument -CatalogDocument (New-TestCatalogDocument))
+        foreach ($search in @(' SEVENZIP ', '7-ZIP', 'utilities', 'FILE ARCHIVER', '7ZIP.7ZIP', '7zip')) {
+            $result = @(Search-KapselApplicationCatalog -Applications $catalog -Search $search)
+            $result.Count | Should Be 1
+            $result[0].Key | Should Be 'sevenzip'
+        }
+        @(Search-KapselApplicationCatalog -Applications $catalog -Search '*' ).Count | Should Be 0
+    }
+
+    It 'combines search, category and FOSS filters without mutating the catalog' {
+        $catalog = @(ConvertFrom-KapselCatalogDocument -CatalogDocument (New-TestCatalogDocument))
+        @(Search-KapselApplicationCatalog -Applications $catalog -Search 'Browser' -Category utilities).Count | Should Be 0
+        @(Search-KapselApplicationCatalog -Applications $catalog -Search 'Browser' -FossOnly).Count | Should Be 0
+        @(Search-KapselApplicationCatalog -Applications $catalog -Search '   ' -Category ALL).Count | Should Be 2
+        $catalog[1].ChocoId | Should BeNullOrEmpty
+        @(Search-KapselApplicationCatalog -Applications @()).Count | Should Be 0
+    }
+
     It 'rejects package identifiers containing command separators' {
         $document = New-TestCatalogDocument
         $document.sevenzip.choco = 'git;sevenzip'

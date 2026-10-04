@@ -23,9 +23,9 @@ function New-KapselCatalogView {
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 58)))
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 50)))
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 54)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 64)))
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 48)))
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 78)))
 
     $heading = New-Object System.Windows.Forms.Panel
     $heading.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -66,6 +66,10 @@ function New-KapselCatalogView {
     [void] $filters.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 100)))
 
     $searchBox = New-Object System.Windows.Forms.TextBox
+    $searchBox.Name = 'KapselCatalogSearch'
+    $searchBox.AccessibleName = 'Search applications'
+    $searchBox.AccessibleDescription = 'Search names, categories, descriptions and package identifiers. Ctrl+F focuses this field.'
+    $searchBox.TabIndex = 0
     $searchBox.Dock = [System.Windows.Forms.DockStyle]::Fill
     $searchBox.BackColor = $colors.Surface
     $searchBox.ForeColor = $colors.Text
@@ -76,6 +80,8 @@ function New-KapselCatalogView {
 
     $fossOnly = New-Object System.Windows.Forms.CheckBox
     $fossOnly.Text = 'FOSS only'
+    $fossOnly.AccessibleName = 'FOSS only'
+    $fossOnly.TabIndex = 1
     $fossOnly.Dock = [System.Windows.Forms.DockStyle]::Fill
     $fossOnly.ForeColor = $colors.Muted
     $fossOnly.BackColor = $colors.Main
@@ -92,11 +98,13 @@ function New-KapselCatalogView {
     $toolTip.SetToolTip($fossOnly, 'Show only Free and Open Source Software.')
 
     $refreshButton = New-KapselButton -Text 'Refresh' -Width 92 -Icon 'Refresh'
+    $refreshButton.TabIndex = 2
     $refreshButton.Dock = [System.Windows.Forms.DockStyle]::Fill
     $refreshButton.Margin = New-Object System.Windows.Forms.Padding(8, 0, 0, 0)
     $filters.Controls.Add($searchBox, 0, 0)
     $filters.Controls.Add($fossOnly, 1, 0)
     $filters.Controls.Add($refreshButton, 2, 0)
+    $filters.TabIndex = 0
 
     $inventoryFilters = New-Object System.Windows.Forms.TableLayoutPanel
     $inventoryFilters.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -104,7 +112,10 @@ function New-KapselCatalogView {
     $inventoryFilters.Padding = New-Object System.Windows.Forms.Padding(0, 4, 0, 6)
     $inventoryFilters.BackColor = $colors.Main
     $inventoryFilters.ColumnCount = 5
-    $inventoryFilters.RowCount = 1
+    $inventoryFilters.RowCount = 2
+    $inventoryFilters.TabIndex = 1
+    [void] $inventoryFilters.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 32)))
+    [void] $inventoryFilters.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     foreach ($width in @(70, 112, 112, 112)) {
         [void] $inventoryFilters.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, $width)))
     }
@@ -124,46 +135,72 @@ function New-KapselCatalogView {
     $allButton.BackColor = $colors.AccentDark
     $allButton.ForeColor = $colors.Accent
     $allButton.FlatAppearance.BorderColor = $colors.Accent
-    $inventorySummary = New-KapselLabel -Text 'Checking installed apps...' -Size 7.5 -Color $colors.Muted -Height 32 -Dock ([System.Windows.Forms.DockStyle]::Fill) -TextAlign ([System.Drawing.ContentAlignment]::MiddleRight)
+    $inventorySummary = New-KapselLabel -Text 'Checking installed apps...' -Size 7.5 -Color $colors.Muted -Height 20 -Dock ([System.Windows.Forms.DockStyle]::Fill)
+    $inventorySummary.Name = 'KapselInventorySummary'
     $inventoryFilters.Controls.Add($allButton, 0, 0)
     $inventoryFilters.Controls.Add($favoritesButton, 1, 0)
     $inventoryFilters.Controls.Add($installedButton, 2, 0)
     $inventoryFilters.Controls.Add($updatesButton, 3, 0)
-    $inventoryFilters.Controls.Add($inventorySummary, 4, 0)
+    $inventoryFilters.Controls.Add($inventorySummary, 0, 1)
+    $inventoryFilters.SetColumnSpan($inventorySummary, 5)
 
     $grid = New-KapselApplicationGrid
+    $grid.TabIndex = 0
+    $gridHost = New-Object System.Windows.Forms.Panel
+    $gridHost.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $gridHost.Margin = New-Object System.Windows.Forms.Padding(0)
+    $gridHost.TabIndex = 2
+    $emptyState = New-KapselLabel -Text 'No applications match this view.' -Size 10 -Color $colors.Muted -Dock ([System.Windows.Forms.DockStyle]::Fill) -TextAlign ([System.Drawing.ContentAlignment]::MiddleCenter)
+    $emptyState.Name = 'KapselCatalogEmptyState'
+    $emptyState.Padding = New-Object System.Windows.Forms.Padding(18)
+    $emptyState.AutoEllipsis = $false
+    $emptyState.Visible = $false
+    $gridHost.Controls.AddRange(@($emptyState, $grid))
 
     $actions = New-Object System.Windows.Forms.TableLayoutPanel
     $actions.Dock = [System.Windows.Forms.DockStyle]::Fill
     $actions.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
     $actions.BackColor = $colors.Main
-    $actions.ColumnCount = 2
-    $actions.RowCount = 1
+    $actions.ColumnCount = 1
+    $actions.RowCount = 2
+    $actions.TabIndex = 3
     [void] $actions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void] $actions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
+    [void] $actions.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 22)))
+    [void] $actions.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
 
     $selectionLabel = New-KapselLabel -Text '0 selected' -Size 8 -Color $colors.Muted -Height 32 -Dock ([System.Windows.Forms.DockStyle]::Fill)
+    $selectionLabel.Name = 'KapselSelectionSummary'
     $actionButtons = New-Object System.Windows.Forms.FlowLayoutPanel
     $actionButtons.AutoSize = $true
     $actionButtons.WrapContents = $false
     $actionButtons.BackColor = $colors.Main
-    $actionButtons.Dock = [System.Windows.Forms.DockStyle]::Right
+    $actionButtons.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $actionButtons.Margin = New-Object System.Windows.Forms.Padding(0)
 
-    $selectAllButton = New-KapselButton -Text 'Select visible' -Width 120 -Icon 'Select'
-    $clearButton = New-KapselButton -Text 'Clear' -Width 70 -Icon 'Clear'
-    $favoriteButton = New-KapselButton -Text 'Favorite' -Width 104 -Icon 'Favorite'
-    $openLinkButton = New-KapselButton -Text 'Website' -Width 84 -Icon 'Website'
-    $upgradeButton = New-KapselButton -Text 'Update' -Width 84 -Icon 'Update'
-    $installButton = New-KapselButton -Text 'Install' -Width 84 -Icon 'Install' -BackColor $colors.Accent -ForeColor $colors.Window -BorderColor $colors.Accent
+    $selectAllButton = New-KapselButton -Text 'Select visible' -Width 114 -Icon 'Select'
+    $clearButton = New-KapselButton -Text 'Clear all' -Width 94 -Icon 'Clear'
+    $favoriteButton = New-KapselButton -Text 'Favorite' -Width 100 -Icon 'Favorite'
+    $openLinkButton = New-KapselButton -Text 'Website' -Width 82 -Icon 'Website'
+    $upgradeButton = New-KapselButton -Text 'Update' -Width 82 -Icon 'Update'
+    $installButton = New-KapselButton -Text 'Install' -Width 82 -Icon 'Install' -BackColor $colors.Accent -ForeColor $colors.Window -BorderColor $colors.Accent
+    $buttonIndex = 0
+    foreach ($button in @($selectAllButton, $clearButton, $favoriteButton, $openLinkButton, $upgradeButton, $installButton)) {
+        $button.TabIndex = $buttonIndex++
+        $button.Margin = New-Object System.Windows.Forms.Padding(0, 0, 6, 0)
+    }
+    $installButton.Margin = New-Object System.Windows.Forms.Padding(0)
+    $toolTip.SetToolTip($clearButton, 'Clear every selection, including applications hidden by filters. Ctrl+Shift+A outside search.')
+    $toolTip.SetToolTip($selectAllButton, 'Select applications in the current view. Ctrl+A outside search.')
+    $main.Add_Disposed({ param($sender, $eventArgs) $toolTip.Dispose() }.GetNewClosure())
     $actionButtons.Controls.AddRange(@($selectAllButton, $clearButton, $favoriteButton, $openLinkButton, $upgradeButton, $installButton))
     $actions.Controls.Add($selectionLabel, 0, 0)
-    $actions.Controls.Add($actionButtons, 1, 0)
+    $actions.Controls.Add($actionButtons, 0, 1)
 
     $main.Controls.Add($heading, 0, 0)
     $main.Controls.Add($metrics, 0, 1)
     $main.Controls.Add($filters, 0, 2)
     $main.Controls.Add($inventoryFilters, 0, 3)
-    $main.Controls.Add($grid, 0, 4)
+    $main.Controls.Add($gridHost, 0, 4)
     $main.Controls.Add($actions, 0, 5)
 
     return [PSCustomObject] @{
@@ -179,6 +216,8 @@ function New-KapselCatalogView {
         UpdatesButton   = $updatesButton
         InventorySummary = $inventorySummary
         Grid            = $grid
+        EmptyState      = $emptyState
+        ToolTip         = $toolTip
         SelectionLabel  = $selectionLabel
         SelectAllButton = $selectAllButton
         ClearButton     = $clearButton

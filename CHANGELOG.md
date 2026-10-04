@@ -5,6 +5,16 @@ published; unreleased work is identified explicitly.
 
 ## Unreleased
 
+- Speed up literal catalog search with a single-pass filter and coalesce rapid search edits.
+- Batch select/clear updates, preserve focused rows, sort order and scroll position, and show visible/hidden/provider-supported selection counts.
+- Add focused-app details with full descriptions, exact provider IDs, detected versions and update-check confidence.
+- Explain empty search, favorites, inventory-loading and unavailable-update states.
+- Keep selection feedback and all primary actions visible at the minimum window size; enable DPI layout scaling.
+- Add keyboard catalog selection, region navigation and refresh, with accessible names and regression coverage.
+- Validate preference schemas and contents, protect damaged/future files from overwrite, and replace valid files atomically.
+- Diagnose provider paths, versions and inventory capabilities in the background; retain exit codes and distinguish source, permission and parsing failures.
+- Expand deterministic inventory/process tests and simulated desktop checks, including isolated favorite persistence.
+- Add a repeatable catalog performance measurement command.
 - Move canonical product, contribution, catalog, and release-history documents to the repository root.
 - Add user, development, architecture, testing, catalog, configuration, troubleshooting, and release guides.
 - Add MIT licensing, support, and community guidance.

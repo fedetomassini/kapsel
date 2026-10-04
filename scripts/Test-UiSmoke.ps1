@@ -28,8 +28,16 @@ if (-not (Test-Path -LiteralPath $resolvedLauncherPath -PathType Leaf)) {
     throw "Kapsel launcher was not found: $resolvedLauncherPath"
 }
 $process = $null
+$previousDataDirectory = $env:KAPSEL_DATA_DIRECTORY
+$smokeDataDirectory = $null
 
 try {
+    if ($ExercisePackageActions) {
+        $smokeDataDirectory = Join-Path ([IO.Path]::GetTempPath()) ('kapsel-ui-' + [Guid]::NewGuid().ToString('N'))
+        [void] (New-Item -ItemType Directory -Path $smokeDataDirectory)
+        $env:KAPSEL_DATA_DIRECTORY = $smokeDataDirectory
+    }
+    $launchWatch = [Diagnostics.Stopwatch]::StartNew()
     $launcherDirectory = Split-Path -Parent $resolvedLauncherPath
     if ([System.IO.Path]::GetExtension($resolvedLauncherPath) -ieq '.exe') {
         $process = Start-Process -FilePath $resolvedLauncherPath -WorkingDirectory $launcherDirectory -PassThru
@@ -59,10 +67,23 @@ try {
         throw "Unexpected Kapsel window title: '$($process.MainWindowTitle)'"
     }
 
-    Write-Host "Kapsel window detected: $($process.MainWindowHandle)"
+    $launchWatch.Stop()
+    Write-Host "Kapsel window detected: $($process.MainWindowHandle) in $([Math]::Round($launchWatch.Elapsed.TotalMilliseconds)) ms"
 
     Add-Type -AssemblyName UIAutomationClient
     Add-Type -AssemblyName UIAutomationTypes
+    Add-Type -AssemblyName System.Windows.Forms
+    function Wait-KapselSmokeText {
+        param([System.Windows.Automation.AutomationElement] $Window, [string] $Pattern)
+        $deadline = [DateTime]::UtcNow.AddSeconds(5)
+        do {
+            $elements = $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+            $match = $elements | Where-Object { $_.Current.Name -like $Pattern -and -not $_.Current.IsOffscreen } | Select-Object -First 1
+            if ($null -ne $match) { return $match }
+            Start-Sleep -Milliseconds 100
+        } while ([DateTime]::UtcNow -lt $deadline)
+        throw "Expected visible UI text was not found: $Pattern"
+    }
     if (-not ('KapselSmoke.NativeMethods' -as [type])) {
         Add-Type -TypeDefinition @"
 using System;
@@ -92,6 +113,42 @@ namespace KapselSmoke {
 
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [DllImport("user32.dll")]
+        private static extern bool AttachThreadInput(uint from, uint to, bool attach);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetFocus(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetFocus();
+
+        public static bool FocusControl(IntPtr window, IntPtr control) {
+            uint processId;
+            uint current = GetCurrentThreadId();
+            uint target = GetWindowThreadProcessId(window, out processId);
+            uint foreground = GetWindowThreadProcessId(GetForegroundWindow(), out processId);
+            bool attachedTarget = current != target && AttachThreadInput(current, target, true);
+            bool attachedForeground = foreground != current && foreground != target && AttachThreadInput(current, foreground, true);
+            try {
+                SetForegroundWindow(window);
+                SetFocus(control);
+                return GetForegroundWindow() == window && GetFocus() == control;
+            }
+            finally {
+                if (attachedForeground) AttachThreadInput(current, foreground, false);
+                if (attachedTarget) AttachThreadInput(current, target, false);
+            }
+        }
 
         [DllImport("user32.dll")]
         public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
@@ -257,6 +314,49 @@ namespace KapselSmoke {
             if (-not $button.Current.IsEnabled) { throw 'Package actions were not restored.' }
             Write-Host "Verified package UI: $expected"
         }
+
+        [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'Brave') | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '2 selected | 0 visible | 2 hidden | 2 supported' | Out-Null
+        [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'kapsel-no-such-application') | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern 'No applications match these filters.*' | Out-Null
+        $clearButton = $controls | Where-Object { $_.Current.Name -eq 'Clear all' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $clearButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '0 selected' | Out-Null
+
+        $detailsButton = $controls | Where-Object { $_.Current.Name -eq 'Details' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $detailsButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern 'Choose an application' | Out-Null
+        if (-not [KapselSmoke.NativeMethods]::FocusControl($process.MainWindowHandle, [IntPtr] $searchBox.Current.NativeWindowHandle)) {
+            throw 'Could not focus Kapsel search for keyboard smoke checks.'
+        }
+        [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+        Wait-KapselSmokeText -Window $window -Pattern '*applications match the current view.' | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait('^{f}')
+        [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'Mozilla.Firefox') | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '2 applications match the current view.' | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait('{DOWN}')
+        [System.Windows.Forms.SendKeys]::SendWait(' ')
+        Wait-KapselSmokeText -Window $window -Pattern '1 selected | 1 visible | 0 hidden | 1 supported' | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait('^a')
+        Wait-KapselSmokeText -Window $window -Pattern '2 selected | 2 visible | 0 hidden | 2 supported' | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait('^+a')
+        Wait-KapselSmokeText -Window $window -Pattern '0 selected' | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern 'Installed version: 130.0' | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait('{F5}')
+        Wait-KapselSmokeText -Window $window -Pattern '2 installed  |  1 updates' | Out-Null
+
+        $favoriteButton = $controls | Where-Object { $_.Current.Name -eq 'Favorite' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        $favoritesButton = $controls | Where-Object { $_.Current.Name -eq 'Favorites' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        $allButton = $controls | Where-Object { $_.Current.Name -eq 'All' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $favoriteButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $favoritesButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '1 application matches the current view.' | Out-Null
+        $preferences = Get-Content -LiteralPath (Join-Path $smokeDataDirectory 'preferences.json') -Raw | ConvertFrom-Json
+        if (@($preferences.FavoriteKeys).Count -ne 1 -or $preferences.FavoriteKeys[0] -ne 'firefox') { throw 'Favorite selection was not persisted to the isolated profile.' }
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $favoriteButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern 'No favorites yet.*' | Out-Null
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $allButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Write-Host 'Verified hidden selections, empty states, details, keyboard search/selection/refresh, and isolated favorites.'
     }
     [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, '') | Out-Null
 
@@ -357,5 +457,9 @@ finally {
             $process.WaitForExit()
         }
         $process.Dispose()
+    }
+    if ($null -ne $smokeDataDirectory) {
+        $env:KAPSEL_DATA_DIRECTORY = $previousDataDirectory
+        Remove-Item -LiteralPath $smokeDataDirectory -Recurse -Force
     }
 }

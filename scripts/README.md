@@ -9,6 +9,7 @@ Run scripts from a source checkout. npm aliases resolve them relative to the rep
 | `Generate-CatalogMarkdown.ps1` | Generate/check root CATALOG.md from validated JSON |
 | `Validate-Documentation.mjs` | Offline relative links/anchors, required docs and version checks |
 | `Test-UiSmoke.ps1` | Interactive UI Automation, optional screenshot and simulated package actions |
+| `Measure-CatalogPerformance.ps1` | Repeatable component timings with real/synthetic catalogs and runtime/hardware context |
 | `Clean-Releases.ps1` | Scoped cleanup of generated Kapsel release directories/ZIPs |
 
 Root `build.ps1` owns staging, optional executable compilation, documentation verification and ZIP

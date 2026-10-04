@@ -34,9 +34,14 @@ Current preference shape:
 }
 ```
 
-The writer always emits schema version 1. The reader does not currently reject future schema
-versions. Do not edit a future-version file with an older app; explicit migration protection is
-not currently implemented.
+The writer emits schema version 1. Legacy favorites-only files are accepted and gain a schema version
+when next saved. Explicit unsupported versions, missing favorites arrays and non-string entries are
+rejected. Failed reads disable favorite editing and show recovery guidance in Activity.
+
+Before writing, the existing file is validated again. A damaged or future-format document is left
+untouched. Valid files are replaced atomically using a sibling temporary file; failed writes retain
+the original and clean up the temporary file. Close Kapsel and back up/move an unreadable file before
+resetting favorites; the app does not erase it on your behalf.
 
 ## Environment Variables
 

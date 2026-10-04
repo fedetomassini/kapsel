@@ -142,6 +142,7 @@ Add tests at the owning boundary:
 - Domain behavior in `tests/Domain`.
 - Use-case behavior in `tests/Application`.
 - External adapter behavior in `tests/Infrastructure`.
+- Grid interaction, details and layout behavior in `tests/Presentation`.
 - Dependency constraints in `tests/Architecture.Tests.ps1`.
 
 Automated tests must not install, update, or remove software. Inject a process adapter when testing

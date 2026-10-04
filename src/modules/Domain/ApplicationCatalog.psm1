@@ -111,19 +111,6 @@ function ConvertFrom-KapselCatalogDocument {
     return $applications.ToArray()
 }
 
-function Test-KapselTextContains {
-    param(
-        [AllowNull()] [object] $Value,
-        [Parameter(Mandatory = $true)] [string] $Search
-    )
-
-    if ($null -eq $Value) {
-        return $false
-    }
-
-    return ([string] $Value).IndexOf($Search, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-}
-
 function Search-KapselApplicationCatalog {
     [CmdletBinding()]
     param(
@@ -134,28 +121,22 @@ function Search-KapselApplicationCatalog {
     )
 
     $searchText = if ($null -eq $Search) { '' } else { $Search.Trim() }
-    $items = @($Applications)
-
-    if (-not [string]::IsNullOrWhiteSpace($searchText)) {
-        $items = @($items | Where-Object {
-            (Test-KapselTextContains -Value $_.Name -Search $searchText) -or
-            (Test-KapselTextContains -Value $_.Key -Search $searchText) -or
-            (Test-KapselTextContains -Value $_.Category -Search $searchText) -or
-            (Test-KapselTextContains -Value $_.Description -Search $searchText) -or
-            (Test-KapselTextContains -Value $_.WingetId -Search $searchText) -or
-            (Test-KapselTextContains -Value $_.ChocoId -Search $searchText)
-        })
+    $filterCategory = -not [string]::IsNullOrWhiteSpace($Category) -and $Category -ne 'All'
+    $comparison = [StringComparison]::OrdinalIgnoreCase
+    # Direct comparisons avoid six PowerShell function/pipeline calls per entry on every keystroke.
+    foreach ($application in $Applications) {
+        if ($filterCategory -and $application.Category -ne $Category) { continue }
+        if ($FossOnly -and -not $application.Foss) { continue }
+        if ($searchText.Length -eq 0 -or
+            ([string] $application.Name).IndexOf($searchText, $comparison) -ge 0 -or
+            ([string] $application.Key).IndexOf($searchText, $comparison) -ge 0 -or
+            ([string] $application.Category).IndexOf($searchText, $comparison) -ge 0 -or
+            ([string] $application.Description).IndexOf($searchText, $comparison) -ge 0 -or
+            ([string] $application.WingetId).IndexOf($searchText, $comparison) -ge 0 -or
+            ([string] $application.ChocoId).IndexOf($searchText, $comparison) -ge 0) {
+            $application
+        }
     }
-
-    if (-not [string]::IsNullOrWhiteSpace($Category) -and $Category -ne 'All') {
-        $items = @($items | Where-Object { $_.Category -eq $Category })
-    }
-
-    if ($FossOnly) {
-        $items = @($items | Where-Object { $_.Foss -eq $true })
-    }
-
-    return $items
 }
 
 function Get-KapselApplicationCategories {

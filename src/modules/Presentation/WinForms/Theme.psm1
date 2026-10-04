@@ -169,6 +169,7 @@ function New-KapselButton {
     $colors = Get-KapselUiColors
     $button = New-Object System.Windows.Forms.Button
     $button.Text = $Text
+    $button.AccessibleName = $Text
     $button.Width = $Width
     $button.Height = 32
     $button.Margin = New-Object System.Windows.Forms.Padding(0, 0, 8, 0)

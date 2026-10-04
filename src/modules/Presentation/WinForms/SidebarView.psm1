@@ -15,6 +15,7 @@ function New-KapselProviderButton {
     $button = New-KapselButton -Text $Provider -Width 102
     $button.Tag = $Provider
     $button.Enabled = $Available
+    $button.AccessibleDescription = "Use $Provider as the active package provider."
     return $button
 }
 
@@ -49,6 +50,7 @@ function New-KapselSidebarView {
     $sidebar.BackColor = $colors.Sidebar
     $sidebar.ColumnCount = 1
     $sidebar.RowCount = 7
+    $sidebar.TabIndex = 0
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 62)))
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 24)))
     [void] $sidebar.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 42)))
@@ -88,9 +90,12 @@ function New-KapselSidebarView {
     $providerPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
     $providerPanel.BackColor = $colors.Sidebar
     $providerPanel.WrapContents = $false
+    $providerPanel.TabIndex = 0
 
     $wingetButton = New-KapselProviderButton -Provider 'winget' -Available ([bool] $ProviderStatus.WingetAvailable)
     $chocoButton = New-KapselProviderButton -Provider 'choco' -Available ([bool] $ProviderStatus.ChocoAvailable)
+    $wingetButton.TabIndex = 0
+    $chocoButton.TabIndex = 1
     $providerPanel.Controls.AddRange(@($wingetButton, $chocoButton))
 
     $initialProvider = if ($ProviderStatus.WingetAvailable) { 'winget' } elseif ($ProviderStatus.ChocoAvailable) { 'choco' } else { $null }
@@ -123,6 +128,10 @@ function New-KapselSidebarView {
 
     $categoryLabel = New-KapselSectionLabel -Text 'Categories'
     $categoryTree = New-Object System.Windows.Forms.TreeView
+    $categoryTree.Name = 'KapselCategories'
+    $categoryTree.AccessibleName = 'Application categories'
+    $categoryTree.AccessibleDescription = 'Use arrow keys to change category.'
+    $categoryTree.TabIndex = 1
     $categoryTree.Dock = [System.Windows.Forms.DockStyle]::Fill
     $categoryTree.BackColor = $colors.Sidebar
     $categoryTree.ForeColor = $colors.Text

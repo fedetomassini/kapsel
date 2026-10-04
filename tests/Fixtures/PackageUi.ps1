@@ -8,6 +8,23 @@ Import-Module (Join-Path $projectRoot 'src\modules\Presentation\WinForms\Gui.psm
     function script:Get-KapselPackageProviderStatus {
         [PSCustomObject] @{ WingetAvailable = $true; ChocoAvailable = $false }
     }
+    function script:Start-KapselInventoryScan {
+        param($Applications, $Provider)
+        InventoryRunner\Start-KapselInventoryScan -Applications $Applications -Provider $Provider -ProviderInvoker {
+            param($SelectedProvider, $Token)
+            $Token.ThrowIfCancellationRequested()
+            [PSCustomObject] @{
+                InstalledDocument = [PSCustomObject] @{ Sources = @([PSCustomObject] @{ Packages = @(
+                    [PSCustomObject] @{ PackageIdentifier = 'Mozilla.Firefox'; Version = '130.0' },
+                    [PSCustomObject] @{ PackageIdentifier = 'Mozilla.Firefox.ESR'; Version = '128.0' }
+                ) }) }
+                UpdateOutput = 'Firefox  Mozilla.Firefox  130.0  131.0  winget'
+                UpdatesChecked = $true
+                Warning = ''
+                Diagnostics = [PSCustomObject] @{ Provider = $SelectedProvider; Version = 'simulated'; ExecutablePath = '(simulated provider)'; Supported = $true }
+            }
+        }
+    }
     function script:Start-KapselPackageBatch {
         param($Plan, $Action, $ProviderStatus)
         if ($Action -eq 'Upgrade') { $script:upgradeAttempt++ }

@@ -1,0 +1,6 @@
+Nombre                      Id                       Versión  Disponible  Origen
+-------------------------------------------------------------------------------
+Mozilla Firefox             Mozilla.Firefox           130.0    131.0       winget
+Mozilla Firefox ESR         Mozilla.Firefox.ESR       128.0    129.0       winget
+Producto de nombre largo    Publisher.VeryLong...     1.0      2.0         winget
+3 actualizaciones disponibles.

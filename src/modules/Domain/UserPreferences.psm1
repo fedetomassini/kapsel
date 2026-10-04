@@ -1,6 +1,24 @@
 # Pure user-preference rules. Persistence belongs to an infrastructure adapter.
 Set-StrictMode -Version Latest
 
+function ConvertFrom-KapselPreferencesDocument {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)] [AllowNull()] [object] $Document)
+
+    if ($null -eq $Document -or $null -eq $Document.PSObject.Properties['FavoriteKeys']) {
+        throw 'Preferences must contain a FavoriteKeys array.'
+    }
+    $version = $Document.PSObject.Properties['SchemaVersion']
+    # Accept legacy favorites-only files, but never reinterpret an explicit future schema.
+    if ($null -ne $version -and (($version.Value -isnot [int] -and $version.Value -isnot [long]) -or $version.Value -ne 1)) {
+        throw "Unsupported preferences schema '$($version.Value)'. This app supports schema 1."
+    }
+    if ($Document.FavoriteKeys -isnot [array] -or @($Document.FavoriteKeys | Where-Object { $_ -isnot [string] }).Count -gt 0) {
+        throw 'FavoriteKeys must be an array of strings.'
+    }
+    return [PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @(ConvertTo-KapselFavoriteKeys -FavoriteKeys $Document.FavoriteKeys) }
+}
+
 function ConvertTo-KapselFavoriteKeys {
     [CmdletBinding()]
     param(
@@ -44,4 +62,4 @@ function Set-KapselFavoriteKey {
     return @(ConvertTo-KapselFavoriteKeys -FavoriteKeys $keys -AvailableKeys $AvailableKeys)
 }
 
-Export-ModuleMember -Function @('ConvertTo-KapselFavoriteKeys', 'Set-KapselFavoriteKey')
+Export-ModuleMember -Function @('ConvertFrom-KapselPreferencesDocument', 'ConvertTo-KapselFavoriteKeys', 'Set-KapselFavoriteKey')

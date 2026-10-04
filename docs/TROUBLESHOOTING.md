@@ -21,6 +21,9 @@ Get-Command choco -ErrorAction SilentlyContinue
 Install or repair providers using their official instructions. Open a new terminal/app after PATH
 changes. A missing catalog identifier means an app is unsupported by that provider even when the
 provider itself is installed. Switching providers is not an automatic fallback for a failed batch.
+Inventory diagnostics show the resolved path/version in Activity after a successful scan. Missing
+executables, unsupported inventory options, source failures, permissions and malformed exports are
+reported separately. Chocolatey inventory requires version 2+; update older versions before retrying.
 
 ## Installed App Is Not Detected
 
@@ -72,10 +75,11 @@ Check `%LOCALAPPDATA%\Kapsel\preferences.json`, or the preference directory set 
 `KAPSEL_DATA_DIRECTORY`. Ensure it is writable and inspect Activity for read/write errors. The
 override affects preferences only, not logs.
 
-For malformed JSON, close Kapsel and **back up the file first**. Move it aside to let Kapsel start
-with empty favorites, then restore known keys from the backup if appropriate. Do not overwrite a
-file from a newer schema with an older app. Explicit version/recovery handling is planned, not
-currently guaranteed. See [Configuration](CONFIGURATION.md).
+Malformed JSON and unsupported schema versions disable favorite editing on startup; the file is
+preserved. Close Kapsel and **back up the file first**. Move it aside to let Kapsel start with empty
+favorites, then restore known keys from the backup if appropriate. A future schema should be opened
+with a compatible app instead of downgraded. Writes recheck the existing file and preserve it on
+errors, including sharing/permission failures. See [Configuration](CONFIGURATION.md).
 
 ## Installed PATH Launcher Breaks After a Move
 

@@ -99,6 +99,8 @@ function New-KapselBorderlessForm {
     $form.BackColor = $colors.Border
     $form.Padding = New-Object System.Windows.Forms.Padding(1)
     $form.Font = New-KapselFont -Size 8.5
+    $form.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
     $form.KeyPreview = $true
     return $form
 }

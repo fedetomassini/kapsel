@@ -48,6 +48,11 @@ JsonCatalogRepository reads applications.json
 Normalized applications contain `Key`, `Name`, `Category`, `Description`, `Link`, `WingetId`,
 `ChocoId`, `PreferredProvider`, and `Foss`. Provider IDs normalize to null when absent or `na`.
 Search is literal and ordinal case-insensitive. Filtering does not own or reset the selection set.
+Search uses a single pass, applies category/FOSS conditions first and compares fields directly.
+Presentation coalesces rapid text edits with a 120 ms timer and flushes it before selection/package
+actions. Rebinding restores focus, sort order and the first visible app by stable key when possible.
+Bulk selection suppresses DataTable binding notifications and per-row reconciliation; single edits
+update only their owning key. The selection summary counts visible, hidden and supported apps.
 See [Catalog maintenance](CATALOG.md) for authoring rules and compatibility behavior.
 
 ## Package Contracts
@@ -97,6 +102,10 @@ completion and during form cleanup.
   pipe-delimited records.
 - Each inventory subprocess has a 90-second default timeout and cancellation token. stdout/stderr
   are drained asynchronously; temporary winget export files are removed in `finally`.
+- Background diagnostics resolve executable paths and query versions with a 5-second timeout.
+  winget help must expose the required inventory flags; Chocolatey must be version 2+ because older
+  `list` semantics could include remote packages. Numeric winget failures distinguish source,
+  permission and unsupported-argument problems while retaining stdout/stderr and exit codes.
 - An update-query failure returns a warning and `UpdatesChecked = false` while retaining installed
   results. Installed-query failure fails the scan.
 - A snapshot contains provider, per-key states/version/update-check success, counts and
@@ -106,10 +115,11 @@ Inventory is session-local and provider-specific; it is not a complete Windows s
 
 ## Persistence and Diagnostics
 
-Preferences use `{ SchemaVersion: 1, FavoriteKeys: string[] }`. The application layer normalizes
-keys and injects the reader/writer. Infrastructure writes a sibling temporary file, then replaces
-the destination using a move and cleans up the temporary path. Explicit schema-version rejection
-and backup/recovery are not implemented yet.
+Preferences use `{ SchemaVersion: 1, FavoriteKeys: string[] }`. Domain validates the document and
+normalizes keys; legacy favorites-only files are accepted. Explicit unsupported schemas and invalid
+arrays are rejected. Application injects storage; infrastructure revalidates existing files before
+writes, stages a sibling temporary file and atomically replaces valid files. Failed reads/writes keep
+the original file. The UI disables favorites on a load failure and displays recovery guidance.
 
 Defaults and the `KAPSEL_DATA_DIRECTORY` preference override are documented in
 [Configuration](CONFIGURATION.md). The override does not redirect package logs.

@@ -25,4 +25,41 @@ Describe 'JSON preferences repository' {
         { Read-KapselUserPreferences -Path $path } | Should Throw
         Test-Path -LiteralPath $path | Should Be $true
     }
+
+    It 'refuses to replace damaged or future preferences and preserves their exact bytes' {
+        foreach ($original in @('{broken', '{"SchemaVersion":2,"FavoriteKeys":["firefox"],"FutureSetting":true}')) {
+            $path = Join-Path $TestDrive 'protected.json'
+            [IO.File]::WriteAllText($path, $original)
+            $before = [Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+            { Write-KapselUserPreferences -Path $path -Preferences ([PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @('vlc') }) } | Should Throw
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) | Should Be $before
+            @(Get-ChildItem -LiteralPath $TestDrive -Filter '.preferences-*.tmp' -Force).Count | Should Be 0
+        }
+    }
+
+    It 'leaves the original file intact and cleans temporary data when replacement is denied' {
+        $path = Join-Path $TestDrive 'locked.json'
+        $original = '{"SchemaVersion":1,"FavoriteKeys":["firefox"]}'
+        [IO.File]::WriteAllText($path, $original)
+        $lock = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+        try {
+            $failure = $null
+            try { Write-KapselUserPreferences -Path $path -Preferences ([PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @('vlc') }) }
+            catch { $failure = $_.Exception.GetBaseException() }
+            ($failure -is [IO.IOException]) | Should Be $true
+            [IO.File]::ReadAllText($path) | Should Be $original
+            @(Get-ChildItem -LiteralPath $TestDrive -Filter '.preferences-*.tmp' -Force).Count | Should Be 0
+        }
+        finally { $lock.Dispose() }
+    }
+
+    It 'atomically replaces valid preferences and reads legacy files without changing them on load' {
+        $path = Join-Path $TestDrive 'legacy.json'
+        $legacy = '{"FavoriteKeys":["firefox"]}'
+        [IO.File]::WriteAllText($path, $legacy)
+        (Read-KapselUserPreferences -Path $path).SchemaVersion | Should Be 1
+        [IO.File]::ReadAllText($path) | Should Be $legacy
+        Write-KapselUserPreferences -Path $path -Preferences ([PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @('vlc') })
+        @((Read-KapselUserPreferences -Path $path).FavoriteKeys) | Should Be @('vlc')
+    }
 }

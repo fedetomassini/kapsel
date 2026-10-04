@@ -8,7 +8,7 @@ function Test-KapselCommandAvailable {
         [string] $Name
     )
 
-    return $null -ne (Get-Command -Name $Name -ErrorAction SilentlyContinue)
+    return $null -ne (Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue)
 }
 
 function Get-KapselPackageProviderStatus {

@@ -22,6 +22,9 @@ script-based ZIP by default, with executable builds available as an explicit opt
 - Filters applications by category and Free and Open Source Software status.
 - Saves favorite applications and provides a dedicated Favorites view across sessions.
 - Preserves selections while the user searches or changes category.
+- Shows visible, hidden, and provider-supported selections before running a batch.
+- Preserves the focused application, sorting, and scroll position when it remains in a refreshed view.
+- Shows full descriptions, provider IDs, detected versions, and update-check confidence in Details.
 - Detects installed applications and available updates for the selected provider in the background.
 - Filters the catalog to installed applications or those with updates available.
 - Installs or updates multiple applications after explicit confirmation.
@@ -57,7 +60,7 @@ The desktop shell follows a compact three-pane model:
 | Left navigation | Product identity, active package provider, categories, and version context. |
 | Catalog workspace | Search, FOSS filtering, catalog metrics, selection, install, and update actions. |
 | Inventory filters | All, Installed, and Updates views with provider-specific counts and app status. |
-| Context panel | Activity, current features, and release changes. |
+| Context panel | Focused-app Details, Activity, current features, and release changes. |
 | Status bar | Visible catalog count and package-operation status. |
 
 All descriptive and informational text is rendered with labels. Only controls that accept user
@@ -67,6 +70,12 @@ input, such as search and checkboxes, are editable or selectable.
 | --- | --- |
 | `Ctrl+F` | Focus catalog search. |
 | `Escape` | Clear a non-empty search. |
+| `Down` in search | Apply the pending search and focus the catalog. |
+| `Space` in the catalog | Toggle the focused application's selection. |
+| `Ctrl+A` outside search | Select all applications in the current view. |
+| `Ctrl+Shift+A` outside search | Clear all selections, including hidden applications. |
+| `F5` | Refresh provider inventory. |
+| `F6` / `Shift+F6` | Move between search, catalog, categories, and the Details tab button. |
 
 ## Requirements
 
@@ -74,6 +83,7 @@ input, such as search and checkboxes, are editable or selectable.
 - Windows PowerShell 5.1 (`powershell.exe`), the supported and tested runtime.
 - `winget` recommended.
 - Chocolatey optional.
+- Chocolatey 2 or newer is required for inventory; winget inventory options are checked from its help output.
 - JetBrains Mono recommended; Kapsel falls back to Segoe UI when unavailable.
 - Node.js 24 LTS recommended for repository tooling; the major version is recorded in `.node-version`.
 - Pester 4.10.1 for local tests.
@@ -200,6 +210,9 @@ When update lookup fails, installed state remains visible and the update check i
 Favorites are stored per Windows user in `%LOCALAPPDATA%\Kapsel\preferences.json`. The file uses a
 versioned JSON format and is written atomically, so installing a new Kapsel release does not replace
 personal preferences.
+Unsupported schemas and malformed files are preserved; favorites are disabled when their file cannot
+be loaded. Activity explains how to back up or move the file before resetting it. Writes also check
+the existing document so a file changed after startup cannot be silently downgraded.
 
 ## Architecture
 
@@ -266,6 +279,7 @@ npm run validate
 npm test
 npm run test:ui
 npm run test:ui:packages
+npm run bench:catalog
 npm run docs:catalog:check
 npm run docs:check
 npm run build:check

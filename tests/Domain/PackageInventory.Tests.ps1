@@ -35,6 +35,28 @@ Describe 'Package inventory matching' {
         $updates.ContainsKey('Mozilla.Firefox') | Should Be $false
     }
 
+    It 'retains installed matches whose provider export has no version' {
+        $packages = ConvertFrom-KapselWingetExport -Document ([PSCustomObject] @{ Sources = @([PSCustomObject] @{ Packages = @([PSCustomObject] @{ PackageIdentifier = 'Mozilla.Firefox' }) }) })
+        $packages.ContainsKey('Mozilla.Firefox') | Should Be $true
+        $packages['Mozilla.Firefox'] | Should BeNullOrEmpty
+    }
+
+    It 'matches localized output without guessing truncated identifiers or product variants' {
+        $output = Get-Content -LiteralPath (Join-Path $ProjectRoot 'tests\Fixtures\winget-updates-es.txt') -Raw -Encoding UTF8
+        $updates = Get-KapselWingetUpdateIds -Output $output -KnownIds @('Mozilla.Firefox', 'Mozilla.Firefox.ESR', 'Mozilla.Fire', 'Publisher.VeryLongPackage')
+        $updates.ContainsKey('Mozilla.Firefox') | Should Be $true
+        $updates.ContainsKey('Mozilla.Firefox.ESR') | Should Be $true
+        $updates.ContainsKey('Mozilla.Fire') | Should Be $false
+        $updates.ContainsKey('Publisher.VeryLongPackage') | Should Be $false
+    }
+
+    It 'ignores Chocolatey banners and blank lines in limited output' {
+        $output = Get-Content -LiteralPath (Join-Path $ProjectRoot 'tests\Fixtures\choco-list.txt') -Raw -Encoding UTF8
+        $packages = ConvertFrom-KapselChocolateyList -Output $output
+        $packages.Count | Should Be 2
+        $packages['firefox'] | Should Be '130.0'
+    }
+
     It 'parses Chocolatey limited output without treating summaries as packages' {
         $provider = [PSCustomObject] @{
             InstalledOutput = "firefox|130.0`nother|2.0`n2 packages installed."

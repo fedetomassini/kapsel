@@ -34,6 +34,9 @@ function New-KapselShellView {
     foreach ($control in @($Sidebar, $Catalog, $Context)) {
         $control.Margin = New-Object System.Windows.Forms.Padding(0)
     }
+    $Sidebar.TabIndex = 0
+    $Catalog.TabIndex = 1
+    $Context.TabIndex = 2
 
     $status = New-Object System.Windows.Forms.TableLayoutPanel
     $status.Dock = [System.Windows.Forms.DockStyle]::Fill
