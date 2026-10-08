@@ -86,12 +86,19 @@ capturing variables from the caller's session.
 While a batch is active, the UI blocks overlapping actions and closing. Failures are recorded per
 app and the loop continues. Progress counts completed entries. On completion the UI disposes the
 worker and requests a new inventory scan. Package execution uses `Start-Process -Wait` without a
-timeout/cancel policy.
+forced timeout. A CancellationToken is checked only before each app starts and produces Cancelled
+events for queued items. The UI owns the source and disposes it after worker completion; cancellation
+never stops the active provider. A 120-second UI warning per app is informational, not a hang detector.
+Failed event items are retained for a confirmed same-action/same-provider retry; other outcomes are
+excluded. Cancellation races at the scheduling boundary may allow the just-started app to finish.
 
 `InventoryRunner.psm1` produces one snapshot in a separate runspace. A 250 ms UI timer consumes it.
 Provider switches cancel stale scans; completed results are applied only to the active provider.
 Pending refresh requests are coalesced. The scan and cancellation source are disposed after
 completion and during form cleanup.
+The last same-provider snapshot survives refresh/failure. UI state records its successful scan time
+and labels it current, previous/refreshing or previous/failed; provider switches cannot reuse it as
+current. Partial update failure keeps installed data and the update-confidence warning.
 
 ## Inventory Contracts
 

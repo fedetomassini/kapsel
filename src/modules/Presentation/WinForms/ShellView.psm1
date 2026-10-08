@@ -43,10 +43,12 @@ function New-KapselShellView {
     $status.Margin = New-Object System.Windows.Forms.Padding(0, 1, 0, 0)
     $status.Padding = New-Object System.Windows.Forms.Padding(12, 0, 12, 0)
     $status.BackColor = $colors.Window
-    $status.ColumnCount = 4
+    $status.ColumnCount = 6
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 150)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 80)))
+    [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
+    [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
     $statusLabel = New-KapselLabel -Text 'Ready' -Size 7 -Color $colors.Muted -Height 28 -Dock ([System.Windows.Forms.DockStyle]::Fill)
     $versionLabel = New-KapselLabel -Text "$($Metadata.Name) $($Metadata.Version)" -Size 7 -Color $colors.Subtle -Height 28 -Dock ([System.Windows.Forms.DockStyle]::Fill) -TextAlign ([System.Drawing.ContentAlignment]::MiddleRight)
@@ -66,6 +68,16 @@ function New-KapselShellView {
     $status.Controls.Add($batchProgress, 1, 0)
     $status.Controls.Add($currentProgress, 2, 0)
     $status.Controls.Add($versionLabel, 3, 0)
+    $cancelButton = New-KapselButton -Text 'Stop pending' -Width 116
+    $retryButton = New-KapselButton -Text 'Retry failed' -Width 116
+    foreach ($button in @($cancelButton, $retryButton)) {
+        $button.Height = 24
+        $button.Margin = New-Object System.Windows.Forms.Padding(4, 2, 0, 2)
+    }
+    $cancelButton.Enabled = $false
+    $retryButton.Enabled = $false
+    $status.Controls.Add($cancelButton, 4, 0)
+    $status.Controls.Add($retryButton, 5, 0)
 
     $windowChrome = New-KapselWindowTitleBar -Form $Form -Metadata $Metadata
     $shell.Controls.Add($windowChrome.Panel, 0, 0)
@@ -82,6 +94,8 @@ function New-KapselShellView {
         BatchProgress = $batchProgress
         CurrentProgress = $currentProgress
         WindowChrome = $windowChrome
+        CancelButton = $cancelButton
+        RetryButton = $retryButton
     }
 }
 

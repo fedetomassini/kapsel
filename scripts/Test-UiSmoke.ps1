@@ -268,7 +268,9 @@ namespace KapselSmoke {
         foreach ($action in @(
             @{ Button = 'Install'; Verb = 'Install'; Summary = '2 succeeded, 0 failed' },
             @{ Button = 'Update'; Verb = 'Upgrade'; Summary = '0 completed, 1 unchanged, 1 failed' },
-            @{ Button = 'Update'; Verb = 'Upgrade'; Summary = '0 completed, 2 unchanged, 0 failed' }
+            @{ Button = 'Retry failed'; Verb = 'Upgrade'; Summary = '0 completed, 1 unchanged, 0 failed'; Count = 1 },
+            @{ Button = 'Update'; Verb = 'Upgrade'; Summary = '0 completed, 2 unchanged, 0 failed' },
+            @{ Button = 'Install'; Verb = 'Install'; Summary = '1 succeeded, 0 failed, 1 cancelled'; Stop = $true }
         )) {
             $button = $controls | Where-Object { $_.Current.Name -eq $action.Button } | Select-Object -First 1
             if (-not $button.Current.IsEnabled) { throw "Action disabled before confirmation: $($action.Button)" }
@@ -293,7 +295,13 @@ namespace KapselSmoke {
             Start-Sleep -Milliseconds 500
             if ($button.Current.IsEnabled) { throw 'Package action remained enabled during execution.' }
             $runningControls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-            if (-not ($runningControls | Where-Object { $_.Current.Name -like '*0/2 completed*' })) { throw 'Running package progress is missing.' }
+            $count = if ($action.ContainsKey('Count')) { $action.Count } else { 2 }
+            if (-not ($runningControls | Where-Object { $_.Current.Name -like "*0/$count completed*" })) { throw 'Running package progress is missing.' }
+            Wait-KapselSmokeText -Window $window -Pattern '*has been running for at least 1 seconds*' | Out-Null
+            if ($action.ContainsKey('Stop')) {
+                $stopButton = $controls | Where-Object { $_.Current.Name -eq 'Stop pending' } | Select-Object -First 1
+                [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $stopButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+            }
             # Search must still respond while the background adapter is waiting.
             [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'Mozilla.Firefox') | Out-Null
             $expected = "$($action.Verb) finished: $($action.Summary)"
@@ -308,10 +316,12 @@ namespace KapselSmoke {
                 throw "Missing package result: $expected. Visible details: $($details -join ' | ')"
             }
             if ($action.Button -eq 'Update') {
+                Start-Sleep -Milliseconds 150
+                $currentControls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
                 if (-not ($currentControls | Where-Object { $_.Current.Name -like '*No newer version is available*' })) { throw 'Activity did not explain the unchanged application.' }
                 if (-not ($currentControls | Where-Object { $_.Current.Name -like '*Simulated provider failure*' })) { throw 'Provider failure details are missing from Activity.' }
             }
-            if (-not $button.Current.IsEnabled) { throw 'Package actions were not restored.' }
+            if ($action.Button -ne 'Retry failed' -and -not $button.Current.IsEnabled) { throw 'Package actions were not restored.' }
             Write-Host "Verified package UI: $expected"
         }
 
@@ -327,7 +337,8 @@ namespace KapselSmoke {
         [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $detailsButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
         Wait-KapselSmokeText -Window $window -Pattern 'Choose an application' | Out-Null
         if (-not [KapselSmoke.NativeMethods]::FocusControl($process.MainWindowHandle, [IntPtr] $searchBox.Current.NativeWindowHandle)) {
-            throw 'Could not focus Kapsel search for keyboard smoke checks.'
+            $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $processCondition) | ForEach-Object { $_.Current.Name }
+            throw "Could not focus Kapsel search for keyboard smoke checks. Process windows: $($windows -join ' | ')"
         }
         [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
         Wait-KapselSmokeText -Window $window -Pattern '*applications match the current view.' | Out-Null
@@ -343,7 +354,15 @@ namespace KapselSmoke {
         Wait-KapselSmokeText -Window $window -Pattern '0 selected' | Out-Null
         Wait-KapselSmokeText -Window $window -Pattern 'Installed version: 130.0' | Out-Null
         [System.Windows.Forms.SendKeys]::SendWait('{F5}')
-        Wait-KapselSmokeText -Window $window -Pattern '2 installed  |  1 updates' | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '*Previous; refreshing*' | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '2 installed  |  1 updates*' | Out-Null
+        [IO.File]::WriteAllText((Join-Path $smokeDataDirectory 'fail-next-inventory'), '')
+        $refreshButton = $controls | Where-Object { $_.Current.Name -eq 'Refresh' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $refreshButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '*Previous; refresh failed*' | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern 'Installed version: 130.0' | Out-Null
+        [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $refreshButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+        Wait-KapselSmokeText -Window $window -Pattern '*winget | Current*' | Out-Null
 
         $favoriteButton = $controls | Where-Object { $_.Current.Name -eq 'Favorite' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
         $favoritesButton = $controls | Where-Object { $_.Current.Name -eq 'Favorites' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1

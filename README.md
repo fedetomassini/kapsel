@@ -22,6 +22,8 @@ script-based ZIP by default, with executable builds available as an explicit opt
 - Filters applications by category and Free and Open Source Software status.
 - Saves favorite applications and provides a dedicated Favorites view across sessions.
 - Preserves selections while the user searches or changes category.
+- Stops queued packages without killing the active installer and retries failed apps with confirmation.
+- Warns about long-running packages and labels previous inventory with its provider and scan time.
 - Shows visible, hidden, and provider-supported selections before running a batch.
 - Preserves the focused application, sorting, and scroll position when it remains in a refreshed view.
 - Shows full descriptions, provider IDs, detected versions, and update-check confidence in Details.

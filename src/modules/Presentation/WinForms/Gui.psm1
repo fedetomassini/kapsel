@@ -35,7 +35,8 @@ function Show-KapselGui {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [object] $Metadata
+        [object] $Metadata,
+        [ValidateRange(1, 3600)] [int] $DelayWarningSeconds = 120
     )
 
     [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
@@ -91,10 +92,10 @@ function Show-KapselGui {
     $contextView = New-KapselContextView -Metadata $Metadata
     $shell = New-KapselShellView -Form $form -Sidebar $sidebar.Panel -Catalog $catalogView.Panel -Context $contextView.Panel -Metadata $Metadata
     $form.Controls.Add($shell.Panel)
-    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow }
+    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow; CurrentStarted = [DateTime]::UtcNow; Delayed = $false; Cancellation = $null; Cancelled = 0; FailedItems = @(); Provider = '' }
     $operationTimer = New-Object System.Windows.Forms.Timer
     $operationTimer.Interval = 200
-    $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false; Status = 'Checking'; Diagnostics = @{} }
+    $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false; Status = 'Checking'; Diagnostics = @{}; CheckedAt = $null }
     $inventoryTimer = New-Object System.Windows.Forms.Timer
     $inventoryTimer.Interval = 250
     $viewState = [PSCustomObject] @{ VisibleApplications = @() }
@@ -139,6 +140,8 @@ function Show-KapselGui {
         $catalogView.ClearButton.Enabled = $count -gt 0
         $catalogView.InstallButton.Enabled = $supportedCount -gt 0 -and -not $operation.Busy
         $catalogView.UpgradeButton.Enabled = $supportedCount -gt 0 -and -not $operation.Busy
+        $shell.CancelButton.Enabled = $operation.Busy -and $null -ne $operation.Cancellation -and -not $operation.Cancellation.IsCancellationRequested
+        $shell.RetryButton.Enabled = -not $operation.Busy -and $operation.FailedItems.Count -gt 0 -and $provider -eq $operation.Provider
         & $updateCurrentApplication
     }
 
@@ -171,6 +174,13 @@ function Show-KapselGui {
             $filtered = @($filtered | Where-Object { $favoriteKeys.Contains([string] $_.Key) })
         }
         $activeSnapshot = if ($null -ne $inventory.Snapshot -and $inventory.Snapshot.Provider -eq $sidebar.ProviderState.Value) { $inventory.Snapshot } else { $null }
+        $providerName = [string] $sidebar.ProviderState.Value
+        $catalogView.InventorySummary.Text = if ($null -ne $activeSnapshot) {
+            $freshness = if ($inventory.Status -eq 'Ready') { 'Current' } elseif ($inventory.Status -eq 'Checking') { 'Previous; refreshing' } else { 'Previous; refresh failed' }
+            "$($activeSnapshot.InstalledCount) installed  |  $($activeSnapshot.UpdateCount) updates | $providerName | $freshness | $($inventory.CheckedAt.ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss'))"
+        } else { "$providerName inventory: $($inventory.Status)" }
+        if ($null -ne $activeSnapshot -and -not $activeSnapshot.UpdatesChecked) { $catalogView.InventorySummary.Text += ' | update check unavailable' }
+        $catalogView.ToolTip.SetToolTip($catalogView.InventorySummary, $catalogView.InventorySummary.Text)
         $states = if ($null -ne $activeSnapshot) { $activeSnapshot.States } else { @{} }
         $inventoryFilter = if ($inventory.Filter -in @('Installed', 'Updates')) { $inventory.Filter } else { 'All' }
         $filtered = @(Find-KapselInventoryApplications -Applications $filtered -Snapshot $activeSnapshot -Filter $inventoryFilter)
@@ -255,7 +265,7 @@ function Show-KapselGui {
             return
         }
         $inventory.Pending = $false
-        $inventory.Snapshot = $null
+        # Keep the last same-provider snapshot visible, explicitly labelled as previous.
         $inventory.Status = 'Checking'
         $catalogView.InventorySummary.Text = "Checking $provider..."
         & $refreshCatalog
@@ -285,6 +295,7 @@ function Show-KapselGui {
             if ($completedScan.Provider -eq [string] $sidebar.ProviderState.Value) {
                 $inventory.Snapshot = $result.Snapshot
                 $inventory.Status = 'Ready'
+                $inventory.CheckedAt = [DateTime]::UtcNow
                 if ($null -ne $result.PSObject.Properties['Diagnostics'] -and $null -ne $result.Diagnostics) {
                     $inventory.Diagnostics[$completedScan.Provider] = $result.Diagnostics
                     Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($result.Diagnostics.Provider) $($result.Diagnostics.Version): $($result.Diagnostics.ExecutablePath)"
@@ -301,7 +312,6 @@ function Show-KapselGui {
         }
         catch {
             if (-not $completedScan.Cancellation.IsCancellationRequested) {
-                $inventory.Snapshot = $null
                 $inventory.Status = 'Unavailable'
                 $catalogView.InventorySummary.Text = 'Inventory unavailable'
                 Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Inventory check failed: $($_.Exception.Message)" -Level Warning
@@ -318,12 +328,16 @@ function Show-KapselGui {
     })
 
     $runPackageAction = {
-        param([ValidateSet('Install', 'Upgrade')] [string] $Action)
+        param([ValidateSet('Install', 'Upgrade')] [string] $Action, [switch] $Retry)
 
         if ($operation.Busy) { return }
         if ($searchTimer.Enabled) { & $refreshCatalog }
         & $synchronizeVisibleSelection
         $selected = @(& $getSelectedApplications)
+        if ($Retry) {
+            if ([string] $sidebar.ProviderState.Value -ne $operation.Provider) { return }
+            $selected = @($operation.FailedItems)
+        }
         if ($selected.Count -eq 0) {
             [System.Windows.Forms.MessageBox]::Show('Select at least one application.', $Metadata.Name) | Out-Null
             return
@@ -345,7 +359,8 @@ function Show-KapselGui {
         if ($plan.Unsupported.Count -gt 0) {
             $message += " $($plan.Unsupported.Count) unsupported item(s) will be skipped."
         }
-        $visibleSelected = @($viewState.VisibleApplications | Where-Object { $selectedKeys.Contains([string] $_.Key) }).Count
+        $actionKeys = @($selected | ForEach-Object { $_.Key })
+        $visibleSelected = @($viewState.VisibleApplications | Where-Object { $actionKeys -contains $_.Key }).Count
         $message += "`n$visibleSelected selected in this view; $($selected.Count - $visibleSelected) hidden by filters."
         $names = @($plan.Supported | Select-Object -First 8 | ForEach-Object { $_.Name })
         $message += "`n`n" + ($names -join "`n")
@@ -372,6 +387,10 @@ function Show-KapselGui {
             $operation.Succeeded = 0
             $operation.Unchanged = 0
             $operation.Failed = 0
+            $operation.Cancelled = 0
+            $operation.FailedItems = @()
+            $operation.Provider = $provider
+            $operation.Cancellation = New-Object System.Threading.CancellationTokenSource
             $operation.Current = 'Starting'
             $operation.Started = [DateTime]::UtcNow
             & $updateActionState
@@ -387,10 +406,12 @@ function Show-KapselGui {
                 Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Skipped $($application.Name): $provider is not supported." -Level Warning
             }
 
-            $operation.Batch = Start-KapselPackageBatch -Plan $plan -Action $Action -ProviderStatus $providerStatus
+            $operation.Batch = Start-KapselPackageBatch -Plan $plan -Action $Action -ProviderStatus $providerStatus -CancellationToken $operation.Cancellation.Token
+            & $updateActionState
             $operationTimer.Start()
         }
         catch {
+            if ($null -ne $operation.Cancellation) { $operation.Cancellation.Dispose(); $operation.Cancellation = $null }
             $operation.Busy = $false
             $shell.CurrentProgress.Visible = $false
             $shell.StatusLabel.Text = 'Could not start package operation'
@@ -410,11 +431,18 @@ function Show-KapselGui {
             while ($operation.Batch.Events.TryDequeue([ref] $event)) {
                 if ($event.Kind -eq 'Started') {
                     $operation.Current = $event.Application
+                    $operation.CurrentStarted = [DateTime]::UtcNow
+                    $operation.Delayed = $false
                     Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($operation.Action): $($event.Application)."
                     continue
                 }
                 $operation.Completed++
                 $shell.BatchProgress.Value = $operation.Completed
+                if ($event.Kind -eq 'Cancelled') {
+                    $operation.Cancelled++
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Cancelled before start: $($event.Application)." -Level Warning
+                    continue
+                }
                 if ($event.Kind -eq 'Completed' -and $event.Result.Succeeded) {
                     $unchanged = $event.Result.Status -in @('UpToDate', 'AlreadyInstalled')
                     if ($unchanged) { $operation.Unchanged++ } else { $operation.Succeeded++ }
@@ -426,6 +454,7 @@ function Show-KapselGui {
                 }
                 else {
                     $operation.Failed++
+                    $operation.FailedItems += $event.Item
                     $detail = if ($event.Kind -eq 'Failed') { $event.Message } else {
                         $providerDetail = if ([string]::IsNullOrWhiteSpace($event.Result.Diagnostics)) { 'The provider returned no further details.' } else { $event.Result.Diagnostics }
                         "$($event.Result.Message)`n$providerDetail"
@@ -434,7 +463,14 @@ function Show-KapselGui {
                 }
             }
             $elapsed = [int] ([DateTime]::UtcNow - $operation.Started).TotalSeconds
-            $shell.StatusLabel.Text = "$($operation.Action): $($operation.Current) | $($operation.Completed)/$($operation.Total) completed | ${elapsed}s"
+            $currentElapsed = [int] ([DateTime]::UtcNow - $operation.CurrentStarted).TotalSeconds
+            $shell.StatusLabel.Text = "$($operation.Action): $($operation.Current) | $($operation.Completed)/$($operation.Total) completed | app ${currentElapsed}s / batch ${elapsed}s"
+            if (-not $finished -and $currentElapsed -ge $DelayWarningSeconds -and -not $operation.Delayed) {
+                $operation.Delayed = $true
+                Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($operation.Current) has been running for at least $DelayWarningSeconds seconds. It may still be working. Stop pending prevents subsequent packages; the active installer will not be killed. Closing remains blocked until it returns." -Level Warning
+            }
+            if ($operation.Delayed) { $shell.StatusLabel.Text += ' | Taking longer than expected' }
+            if ($operation.Cancellation.IsCancellationRequested) { $shell.StatusLabel.Text += ' | Stopping after current app' }
             if (-not $finished) { return }
             [void] $operation.Batch.Worker.EndInvoke($operation.Batch.Handle)
             if ($operation.Batch.Worker.Streams.Error.Count -gt 0) { throw ($operation.Batch.Worker.Streams.Error | Out-String) }
@@ -443,6 +479,7 @@ function Show-KapselGui {
                 $shell.StatusLabel.Text = "$($operation.Action) finished: $($operation.Succeeded) completed, $($operation.Unchanged) unchanged, $($operation.Failed) failed"
             }
             $summaryLevel = if ($operation.Failed -gt 0) { 'Warning' } else { 'Success' }
+            if ($operation.Cancelled -gt 0) { $shell.StatusLabel.Text += ", $($operation.Cancelled) cancelled"; $summaryLevel = 'Warning' }
             Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $shell.StatusLabel.Text -Level $summaryLevel
         }
         catch {
@@ -455,6 +492,8 @@ function Show-KapselGui {
                 $operationTimer.Stop()
                 $operation.Batch.Worker.Dispose()
                 $operation.Batch = $null
+                $operation.Cancellation.Dispose()
+                $operation.Cancellation = $null
                 $operation.Busy = $false
                 $shell.CurrentProgress.Visible = $false
                 $sidebar.WingetButton.Enabled = $providerStatus.WingetAvailable
@@ -473,6 +512,14 @@ function Show-KapselGui {
     })
 
     $catalogView.RefreshButton.Add_Click({ & $startInventoryScan })
+    $shell.CancelButton.Add_Click({
+        if ($operation.Busy -and $null -ne $operation.Cancellation) {
+            $operation.Cancellation.Cancel()
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message 'Stop pending requested. The active installer is allowed to finish; remaining packages will not start.' -Level Warning
+            & $updateActionState
+        }
+    })
+    $shell.RetryButton.Add_Click({ & $runPackageAction $operation.Action -Retry })
     $catalogView.AllButton.Add_Click({ & $setInventoryFilter 'All' })
     $catalogView.FavoritesButton.Add_Click({ & $setInventoryFilter 'Favorites' })
     $catalogView.InstalledButton.Add_Click({ & $setInventoryFilter 'Installed' })

@@ -7,32 +7,37 @@ function Start-KapselPackageBatch {
         [Parameter(Mandatory = $true)] [object] $Plan,
         [Parameter(Mandatory = $true)] [ValidateSet('Install', 'Upgrade')] [string] $Action,
         [Parameter(Mandatory = $true)] [object] $ProviderStatus,
-        [scriptblock] $ProcessInvoker = { param($Command) Invoke-KapselPackageProcess -Command $Command }
+        [scriptblock] $ProcessInvoker = { param($Command) Invoke-KapselPackageProcess -Command $Command },
+        [System.Threading.CancellationToken] $CancellationToken = [System.Threading.CancellationToken]::None
     )
 
     $events = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
     $worker = [PowerShell]::Create()
     $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script = {
-        param($ModuleRoot, $Plan, $Action, $ProviderStatus, $Events, $InvokerSource)
+        param($ModuleRoot, $Plan, $Action, $ProviderStatus, $Events, $InvokerSource, $Token)
         $ErrorActionPreference = 'Stop'
         Set-StrictMode -Version Latest
         Import-Module (Join-Path $ModuleRoot 'Application\PackageService.psm1') -Force
         Import-Module (Join-Path $ModuleRoot 'Infrastructure\PackageManagerAdapter.psm1') -Force
         $invoker = [scriptblock]::Create($InvokerSource)
         foreach ($application in @($Plan.Supported)) {
-            $Events.Enqueue([PSCustomObject] @{ Kind = 'Started'; Application = $application.Name })
+            if ($Token.IsCancellationRequested) {
+                $Events.Enqueue([PSCustomObject] @{ Kind = 'Cancelled'; Application = $application.Name; Item = $application })
+                continue
+            }
+            $Events.Enqueue([PSCustomObject] @{ Kind = 'Started'; Application = $application.Name; Item = $application })
             try {
                 $result = Invoke-KapselPackageAction -Action $Action -Application $application -Provider $Plan.Provider -ProviderStatus $ProviderStatus -ProcessInvoker $invoker
-                $Events.Enqueue([PSCustomObject] @{ Kind = 'Completed'; Application = $application.Name; Result = $result })
+                $Events.Enqueue([PSCustomObject] @{ Kind = 'Completed'; Application = $application.Name; Item = $application; Result = $result })
             }
             catch {
-                $Events.Enqueue([PSCustomObject] @{ Kind = 'Failed'; Application = $application.Name; Message = $_.Exception.Message })
+                $Events.Enqueue([PSCustomObject] @{ Kind = 'Failed'; Application = $application.Name; Item = $application; Message = $_.Exception.Message })
             }
         }
     }
     try {
-        [void] $worker.AddScript($script.ToString()).AddArgument($moduleRoot).AddArgument($Plan).AddArgument($Action).AddArgument($ProviderStatus).AddArgument($events).AddArgument($ProcessInvoker.ToString())
+        [void] $worker.AddScript($script.ToString()).AddArgument($moduleRoot).AddArgument($Plan).AddArgument($Action).AddArgument($ProviderStatus).AddArgument($events).AddArgument($ProcessInvoker.ToString()).AddArgument($CancellationToken)
         $handle = $worker.BeginInvoke()
         return [PSCustomObject] @{ Worker = $worker; Handle = $handle; Events = $events }
     }

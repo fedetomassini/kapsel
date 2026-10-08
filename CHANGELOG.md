@@ -5,6 +5,10 @@ published; unreleased work is identified explicitly.
 
 ## Unreleased
 
+- Add Stop pending and confirmed Retry failed actions; active installers are never killed by cancellation.
+- Warn after two minutes per package, retaining elapsed times and results while waiting safely.
+- Keep previous inventory during refresh/failure and label its provider, timestamp and freshness.
+
 - Speed up literal catalog search with a single-pass filter and coalesce rapid search edits.
 - Batch select/clear updates, preserve focused rows, sort order and scroll position, and show visible/hidden/provider-supported selection counts.
 - Add focused-app details with full descriptions, exact provider IDs, detected versions and update-check confidence.

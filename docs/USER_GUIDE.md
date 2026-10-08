@@ -69,7 +69,20 @@ Provider source availability and output format affect the scan.
 
 The progress bar counts finished apps, including failures, not downloaded bytes. You can search,
 move and minimize the window while a package runs. A second batch and window closing are blocked
-until completion. There is currently no package cancel action or execution timeout.
+until completion. **Stop pending** prevents subsequent packages from starting; the active installer
+is allowed to finish. Cancelled apps are reported separately from failures. After two minutes per
+app, Activity warns that execution is taking longer than expected; this is not proof of a hang.
+There is no forced installer timeout or rollback. A genuinely stuck installer keeps the batch active
+and closing blocked; inspect the provider/installer before taking manual action outside Kapsel.
+
+**Retry failed** repeats only failed apps from the last batch, using its action and provider and a
+fresh confirmation. Successes, unchanged and cancelled apps are not retried. The button is disabled
+when another provider is selected. Select cancelled apps normally to start them in a new batch.
+
+The inventory summary shows the provider and local time of the last successful scan. During refresh
+or after a failed refresh, previous results remain available and are explicitly labelled as previous.
+A provider switch never displays another provider's snapshot as current. Update-check failure is
+identified separately; previous data is not a guarantee of the machine's present state.
 
 Some packages need administrator rights. Kapsel does not automatically elevate itself. Inspect the
 provider error and use the publisher/provider's documented privilege requirements rather than

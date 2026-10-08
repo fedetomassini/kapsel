@@ -10,9 +10,15 @@ Import-Module (Join-Path $projectRoot 'src\modules\Presentation\WinForms\Gui.psm
     }
     function script:Start-KapselInventoryScan {
         param($Applications, $Provider)
+        $failureFlag = Join-Path $env:KAPSEL_DATA_DIRECTORY 'fail-next-inventory'
+        if (Test-Path -LiteralPath $failureFlag) {
+            Remove-Item -LiteralPath $failureFlag
+            return InventoryRunner\Start-KapselInventoryScan -Applications $Applications -Provider $Provider -ProviderInvoker { throw 'Simulated inventory refresh failure' }
+        }
         InventoryRunner\Start-KapselInventoryScan -Applications $Applications -Provider $Provider -ProviderInvoker {
             param($SelectedProvider, $Token)
             $Token.ThrowIfCancellationRequested()
+            Start-Sleep -Milliseconds 700
             [PSCustomObject] @{
                 InstalledDocument = [PSCustomObject] @{ Sources = @([PSCustomObject] @{ Packages = @(
                     [PSCustomObject] @{ PackageIdentifier = 'Mozilla.Firefox'; Version = '130.0' },
@@ -26,7 +32,7 @@ Import-Module (Join-Path $projectRoot 'src\modules\Presentation\WinForms\Gui.psm
         }
     }
     function script:Start-KapselPackageBatch {
-        param($Plan, $Action, $ProviderStatus)
+        param($Plan, $Action, $ProviderStatus, $CancellationToken)
         if ($Action -eq 'Upgrade') { $script:upgradeAttempt++ }
         $invoker = {
             param($Command)
@@ -34,14 +40,14 @@ Import-Module (Join-Path $projectRoot 'src\modules\Presentation\WinForms\Gui.psm
             $code = if ($Command.Arguments[0] -ne 'upgrade') { 0 } elseif ($Command.Arguments[2] -eq 'Mozilla.Firefox') { -1978335189 } else { 7 }
             [PSCustomObject] @{ ExitCode = $code; Diagnostics = 'Simulated provider failure' }
         }
-        if ($script:upgradeAttempt -gt 1) {
+        if ($Action -eq 'Upgrade' -and $script:upgradeAttempt -gt 1) {
             $invoker = {
                 param($Command)
                 Start-Sleep -Seconds 2
                 [PSCustomObject] @{ ExitCode = -1978335189; Diagnostics = '' }
             }
         }
-        PackageOperationRunner\Start-KapselPackageBatch -Plan $Plan -Action $Action -ProviderStatus $ProviderStatus -ProcessInvoker $invoker
+        PackageOperationRunner\Start-KapselPackageBatch -Plan $Plan -Action $Action -ProviderStatus $ProviderStatus -ProcessInvoker $invoker -CancellationToken $CancellationToken
     }
 }
-Gui\Show-KapselGui -Metadata (Get-KapselProductMetadata)
+Gui\Show-KapselGui -Metadata (Get-KapselProductMetadata) -DelayWarningSeconds 1

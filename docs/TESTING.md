@@ -53,6 +53,9 @@ background progress, responsive search, unchanged results and failure details wi
 anything. Inventory is also simulated. It checks hidden selections, empty states, focused details,
 keyboard selection/search/refresh and favorite persistence in a temporary isolated profile that is
 removed after the run. The user's favorites are not modified.
+The fixture shortens the package-delay warning to one second (production default: 120 seconds).
+It checks the warning, stop-pending results, retry-only-failed confirmation and previous inventory
+during refresh. Worker tests cover cancellation both before scheduling and during an active fake call.
 
 Capture a screenshot or exercise a packaged launcher:
 
