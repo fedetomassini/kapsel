@@ -68,8 +68,9 @@ Replace the example with the prepared version. Do not tag an uncommitted local b
 2. Runs syntax, Pester, catalog, documentation and PSScriptAnalyzer checks.
 3. Builds the default script archive and its SHA-256 checksum.
 4. Verifies the checksum against the archive bytes.
-5. Uses GitHub CLI to create the release with generated notes or upload both assets to an existing
-   release with `--clobber`.
+5. Uses GitHub CLI to create the release from the matching `CHANGELOG.md` section, including download
+   and checksum instructions, or uploads both assets to an existing release with `--clobber`. Falls
+   back to generated notes only when the changelog section is missing.
 
 Quality has read-only repository permissions. Release grants write permission to its publishing
 job. `npm run release` only runs local checks/build; it does not publish to GitHub.

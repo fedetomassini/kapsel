@@ -154,11 +154,41 @@ jobs:
             gh release upload $env:RELEASE_TAG $archive $checksum --clobber
           }
           else {
-            gh release create $env:RELEASE_TAG $archive $checksum `
-              --verify-tag `
-              --title "Kapsel $env:RELEASE_VERSION" `
-              --generate-notes `
-              --latest
+            $changelog = Get-Content -LiteralPath (Join-Path $PWD 'CHANGELOG.md') -Raw
+            $section = [regex]::Match(
+              $changelog,
+              "(?ms)^##\s+$([regex]::Escape($env:RELEASE_VERSION))\b.*?(?=^##\s+|\z)"
+            )
+            if ($section.Success) {
+              $notes = @(
+                $section.Value.Trim()
+                ''
+                '## Download'
+                "- ``Kapsel-$env:RELEASE_VERSION-windows.zip``"
+                "- ``Kapsel-$env:RELEASE_VERSION-windows.zip.sha256``"
+                ''
+                'Verify the archive before extracting:'
+                '```powershell'
+                "Get-FileHash .\Kapsel-$env:RELEASE_VERSION-windows.zip -Algorithm SHA256"
+                '```'
+                ''
+                "Full changelog: https://github.com/${{ github.repository }}/blob/$env:RELEASE_TAG/CHANGELOG.md"
+              ) -join "`n"
+              $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+              [IO.File]::WriteAllText($notesPath, $notes, (New-Object Text.UTF8Encoding($false)))
+              gh release create $env:RELEASE_TAG $archive $checksum `
+                --verify-tag `
+                --title "Kapsel $env:RELEASE_VERSION" `
+                --notes-file $notesPath `
+                --latest
+            }
+            else {
+              gh release create $env:RELEASE_TAG $archive $checksum `
+                --verify-tag `
+                --title "Kapsel $env:RELEASE_VERSION" `
+                --generate-notes `
+                --latest
+            }
           }
           if ($LASTEXITCODE -ne 0) {
             throw "GitHub release publication failed with exit code $LASTEXITCODE."

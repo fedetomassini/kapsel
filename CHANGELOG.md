@@ -3,6 +3,10 @@
 This file records user-visible and architectural changes. Release dates are added when a version is
 published; unreleased work is identified explicitly.
 
+## Unreleased
+
+- Publish release notes from the matching changelog section, including download and checksum steps.
+
 ## 1.4.0 - Operational Visibility (2026-10-31)
 
 - Add a **Diagnostics** action that exports a redacted, local support report with provider, inventory, batch and log metadata.
