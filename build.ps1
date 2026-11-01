@@ -205,8 +205,23 @@ finally {
 }
 
 # Publish a stable checksum next to the archive; the release workflow verifies it before upload.
+# Use .NET directly so the build does not depend on cmdlet auto-loading.
+function Get-KapselFileSha256 {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $algorithm = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString($algorithm.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+        }
+        finally { $algorithm.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
+
 $checksumPath = "$zipPath.sha256"
-$checksum = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$checksum = Get-KapselFileSha256 -Path $zipPath
 $archiveName = [System.IO.Path]::GetFileName($zipPath)
 "$checksum  $archiveName" | Set-Content -LiteralPath $checksumPath -Encoding ASCII
 $recorded = ((Get-Content -LiteralPath $checksumPath -Raw).Trim() -split '\s+')[0]

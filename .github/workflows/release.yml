@@ -127,7 +127,15 @@ jobs:
             throw "Release checksum not found: $checksumFile"
           }
           $recorded = ((Get-Content -LiteralPath $checksumFile -Raw).Trim() -split '\s+')[0]
-          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $stream = [System.IO.File]::OpenRead($archive)
+          try {
+            $algorithm = [System.Security.Cryptography.SHA256]::Create()
+            try {
+              $actual = ([BitConverter]::ToString($algorithm.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+            }
+            finally { $algorithm.Dispose() }
+          }
+          finally { $stream.Dispose() }
           if ($recorded -ne $actual) {
             throw "Release checksum does not match the archive: $archive"
           }

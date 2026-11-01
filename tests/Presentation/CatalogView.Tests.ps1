@@ -131,8 +131,9 @@ Describe 'Minimum-window layout' {
                 $form.PerformLayout()
             }
             foreach ($button in @($catalog.SelectAllButton, $catalog.ClearButton, $catalog.FavoriteButton, $catalog.OpenLinkButton, $catalog.UpgradeButton, $catalog.InstallButton)) {
-                ($button.Right -le $button.Parent.ClientSize.Width) | Should Be $true
-                ($button.Bottom -le $button.Parent.ClientSize.Height) | Should Be $true
+                if ($button.Right -gt $button.Parent.ClientSize.Width -or $button.Bottom -gt $button.Parent.ClientSize.Height) {
+                    throw "Action '$($button.Text)' overflows its panel: right=$($button.Right) width=$($button.Parent.ClientSize.Width) bottom=$($button.Bottom) height=$($button.Parent.ClientSize.Height)"
+                }
             }
             $catalog.SearchBox.AccessibleName | Should Be 'Search applications'
             $catalog.Grid.AccessibleName | Should Be 'Application catalog'
