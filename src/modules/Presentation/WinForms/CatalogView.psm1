@@ -25,7 +25,8 @@ function New-KapselCatalogView {
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 54)))
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 64)))
     [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 78)))
+    # Two fixed rows keep every action reachable when DPI or a narrow window reduces the pane width.
+    [void] $main.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 100)))
 
     $heading = New-Object System.Windows.Forms.Panel
     $heading.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -162,16 +163,21 @@ function New-KapselCatalogView {
     $actions.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
     $actions.BackColor = $colors.Main
     $actions.ColumnCount = 1
-    $actions.RowCount = 2
+    $actions.RowCount = 3
     $actions.TabIndex = 3
     [void] $actions.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     [void] $actions.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 22)))
-    [void] $actions.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void] $actions.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 34)))
+    [void] $actions.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 34)))
 
     $selectionLabel = New-KapselLabel -Text '0 selected' -Size 8 -Color $colors.Muted -Height 32 -Dock ([System.Windows.Forms.DockStyle]::Fill)
     $selectionLabel.Name = 'KapselSelectionSummary'
+    $selectionButtons = New-Object System.Windows.Forms.FlowLayoutPanel
+    $selectionButtons.WrapContents = $false
+    $selectionButtons.BackColor = $colors.Main
+    $selectionButtons.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $selectionButtons.Margin = New-Object System.Windows.Forms.Padding(0)
     $actionButtons = New-Object System.Windows.Forms.FlowLayoutPanel
-    $actionButtons.AutoSize = $true
     $actionButtons.WrapContents = $false
     $actionButtons.BackColor = $colors.Main
     $actionButtons.Dock = [System.Windows.Forms.DockStyle]::Fill
@@ -188,13 +194,16 @@ function New-KapselCatalogView {
         $button.TabIndex = $buttonIndex++
         $button.Margin = New-Object System.Windows.Forms.Padding(0, 0, 6, 0)
     }
+    $clearButton.Margin = New-Object System.Windows.Forms.Padding(0)
     $installButton.Margin = New-Object System.Windows.Forms.Padding(0)
     $toolTip.SetToolTip($clearButton, 'Clear every selection, including applications hidden by filters. Ctrl+Shift+A outside search.')
     $toolTip.SetToolTip($selectAllButton, 'Select applications in the current view. Ctrl+A outside search.')
     $main.Add_Disposed({ param($sender, $eventArgs) $toolTip.Dispose() }.GetNewClosure())
-    $actionButtons.Controls.AddRange(@($selectAllButton, $clearButton, $favoriteButton, $openLinkButton, $upgradeButton, $installButton))
+    $selectionButtons.Controls.AddRange(@($selectAllButton, $clearButton))
+    $actionButtons.Controls.AddRange(@($favoriteButton, $openLinkButton, $upgradeButton, $installButton))
     $actions.Controls.Add($selectionLabel, 0, 0)
-    $actions.Controls.Add($actionButtons, 0, 1)
+    $actions.Controls.Add($selectionButtons, 0, 1)
+    $actions.Controls.Add($actionButtons, 0, 2)
 
     $main.Controls.Add($heading, 0, 0)
     $main.Controls.Add($metrics, 0, 1)

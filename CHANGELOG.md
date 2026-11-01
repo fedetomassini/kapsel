@@ -11,7 +11,7 @@ published; unreleased work is identified explicitly.
 - Remember the active package provider and window size/position, ignoring saved bounds that fall outside connected displays.
 - Add a catalog lint gate for required fields, categories, https links and duplicate provider identifiers.
 - Add an incremental PSScriptAnalyzer gate with an empty baseline and documented exclusions.
-- Run Pester and static checks as parallel CI jobs and cache the pinned Pester/PSScriptAnalyzer modules.
+- Run Pester and static checks as parallel CI jobs and cache the pinned Pester module.
 - Publish a SHA-256 checksum beside each release archive and verify it before publication.
 - Add Stop pending and confirmed Retry failed actions; active installers are never killed by cancellation.
 - Warn after two minutes per package, retaining elapsed times and results while waiting safely.

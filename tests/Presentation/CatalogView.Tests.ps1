@@ -109,10 +109,11 @@ Describe 'Minimum-window layout' {
         }
     }
 
-    It 'keeps primary actions inside their container at simulated display scale <Scale>' -TestCases @(
-        @{ Scale = 1.0 }, @{ Scale = 1.25 }, @{ Scale = 1.5 }, @{ Scale = 2.0 }
+    It 'keeps primary actions inside their container at simulated display scale <Scale> width <Width>' -TestCases @(
+        @{ Scale = 1.0; Width = 1180 }, @{ Scale = 1.25; Width = 1180 }, @{ Scale = 1.5; Width = 1180 }, @{ Scale = 2.0; Width = 1180 },
+        @{ Scale = 1.0; Width = 1002 }
     ) {
-        param($Scale)
+        param($Scale, $Width)
         $metadata = Get-KapselProductMetadata
         $form = New-KapselBorderlessForm -Metadata $metadata
         $snapshot = New-KapselCatalogSnapshot -CatalogDocument (Read-KapselApplicationCatalogDocument)
@@ -122,12 +123,14 @@ Describe 'Minimum-window layout' {
         $shell = New-KapselShellView -Form $form -Sidebar $sidebar.Panel -Catalog $catalog.Panel -Context $context.Panel -Metadata $metadata
         $form.Controls.Add($shell.Panel)
         try {
-            $form.Size = New-Object System.Drawing.Size(1180, 700)
+            # A 125% display leaves less logical width than the minimum window size suggests.
+            $form.MinimumSize = New-Object System.Drawing.Size(0, 0)
+            $form.Size = New-Object System.Drawing.Size($Width, 700)
             [void] $form.Handle
             $form.PerformLayout()
             if ($Scale -ne 1) {
                 $form.Scale((New-Object System.Drawing.SizeF($Scale, $Scale)))
-                $form.Size = New-Object System.Drawing.Size(([int] (1180 * $Scale)), ([int] (700 * $Scale)))
+                $form.Size = New-Object System.Drawing.Size(([int] ($Width * $Scale)), ([int] (700 * $Scale)))
                 $form.PerformLayout()
             }
             foreach ($button in @($catalog.SelectAllButton, $catalog.ClearButton, $catalog.FavoriteButton, $catalog.OpenLinkButton, $catalog.UpgradeButton, $catalog.InstallButton)) {

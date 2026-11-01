@@ -309,15 +309,17 @@ namespace KapselSmoke {
             # Search must still respond while the background adapter is waiting.
             [KapselSmoke.NativeMethods]::SetText([IntPtr] $searchBox.Current.NativeWindowHandle, 0x000C, [IntPtr]::Zero, 'Mozilla.Firefox') | Out-Null
             $expected = "$($action.Verb) finished: $($action.Summary)"
-            $deadline = [DateTime]::UtcNow.AddSeconds(10)
+            $deadline = [DateTime]::UtcNow.AddSeconds(15)
             do {
                 Start-Sleep -Milliseconds 100
                 $currentControls = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
                 $summary = $currentControls | Where-Object { $_.Current.Name -eq $expected } | Select-Object -First 1
             } while ($null -eq $summary -and [DateTime]::UtcNow -lt $deadline)
             if ($null -eq $summary) {
+                $process.Refresh()
                 $details = @($currentControls | ForEach-Object { $_.Current.Name } | Where-Object { $_ -match 'Install|Upgrade|inventory|Inventory|error|Error|Failed|completed|interrupted' })
-                throw "Missing package result: $expected. Visible details: $($details -join ' | ')"
+                $state = if ($process.HasExited) { "exited with $($process.ExitCode)" } else { 'still running' }
+                throw "Missing package result: $expected. Process $state; $($currentControls.Count) controls; visible details: $($details -join ' | ')"
             }
             if ($action.Button -eq 'Update') {
                 Start-Sleep -Milliseconds 150

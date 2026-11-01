@@ -65,25 +65,18 @@ jobs:
         with:
           node-version-file: '.node-version'
 
-      - name: Cache PSScriptAnalyzer
-        id: analyzer-cache
-        uses: actions/cache@v4
-        with:
-          path: ~\Documents\WindowsPowerShell\Modules\PSScriptAnalyzer
-          key: psscriptanalyzer-1.25.0-windows-v2
-
-      - name: Install PSScriptAnalyzer
-        if: steps.analyzer-cache.outputs.cache-hit != 'true'
+      # windows-latest ships PSScriptAnalyzer 1.25.0. Only install when the image drops it.
+      - name: Ensure PSScriptAnalyzer
         shell: powershell
         run: |
-          $moduleRoot = Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Modules\PSScriptAnalyzer\1.25.0'
-          if (Test-Path -LiteralPath $moduleRoot) { Remove-Item -LiteralPath $moduleRoot -Recurse -Force }
-          New-Item -ItemType Directory -Path $moduleRoot -Force | Out-Null
-          $package = Join-Path $env:TEMP 'psscriptanalyzer-1.25.0.zip'
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Invoke-WebRequest -Uri 'https://www.powershellgallery.com/api/v2/package/PSScriptAnalyzer/1.25.0' -OutFile $package -UseBasicParsing
-          Expand-Archive -LiteralPath $package -DestinationPath $moduleRoot -Force
-          Import-Module (Join-Path $moduleRoot 'PSScriptAnalyzer.psd1') -Force
+          if (Get-Module -ListAvailable PSScriptAnalyzer) {
+            Write-Host 'Using the preinstalled PSScriptAnalyzer.'
+            exit 0
+          }
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default -InstallationPolicy Trusted -ErrorAction Stop
+          }
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Validate tooling, documentation, and package
         run: npm run check:docs
