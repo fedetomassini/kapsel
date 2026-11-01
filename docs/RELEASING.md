@@ -25,11 +25,13 @@ The local documentation check also rejects package/metadata drift.
 npm run check
 npm run test:ui:packages
 npm run build:release
+npm run test:release
 ```
 
-Run real-inventory smoke when relevant. Record Windows version, provider versions, display scale,
-non-admin behavior and the tested artifact in the PR/release record. Interactive UI tests are not
-currently part of either GitHub workflow.
+`npm run check` already builds the archive and runs `test:release`. Re-run the last two commands after
+any interactive change that affects packaged files. Run real-inventory smoke when relevant. Record
+Windows version, provider versions, display scale, non-admin behavior and the tested artifact in the
+PR/release record. Interactive UI tests are not currently part of either GitHub workflow.
 
 ## Package Contents and Verification
 

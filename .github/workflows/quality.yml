@@ -86,3 +86,6 @@ jobs:
 
       - name: Validate release package structure
         run: npm run build:check
+
+      - name: Verify extracted release package
+        run: npm run test:release

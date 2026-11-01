@@ -109,6 +109,9 @@ jobs:
         shell: pwsh
         run: ./build.ps1
 
+      - name: Verify release package
+        run: npm run test:release
+
       - name: Verify release checksum
         shell: pwsh
         env:

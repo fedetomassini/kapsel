@@ -72,6 +72,11 @@ Capture a screenshot or exercise a packaged launcher:
 Replace the package path with the current version. For an optional executable, use its path as
 `-LauncherPath`; do not combine it with `-ExercisePackageActions`, which always uses the fixture.
 
+`npm run test:release` verifies the built ZIP without opening the UI. It recomputes the SHA-256
+checksum, extracts into a temporary path containing spaces, checks bundled docs/assets/notices, and
+runs the extracted `kapsel.ps1 version` and `help` commands with an isolated data directory. It never
+installs software.
+
 ## Manual UI Matrix
 
 For relevant presentation changes, record:

@@ -292,6 +292,7 @@ npm run bench:catalog
 npm run docs:catalog:check
 npm run docs:check
 npm run build:check
+npm run test:release
 ```
 
 `test:ui:packages` exercises confirmation, background progress, success, and failure in the real
