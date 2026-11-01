@@ -62,6 +62,10 @@ git tag v1.4.0
 git push origin v1.4.0
 ```
 
+`main` requires the **PowerShell tests** and **Tooling, documentation, and package** Quality checks,
+blocks force pushes and deletion, and requires resolved conversations. Direct maintainer pushes are
+still possible, so confirm the Quality run for the exact commit before tagging.
+
 Replace the example with the prepared version. Do not tag an uncommitted local build. The workflow:
 
 1. Resolves package/metadata/tag version agreement.

@@ -167,6 +167,16 @@ Before opening a pull request:
 Use the repository pull-request template and link the relevant issue with `Closes #<number>` when
 applicable.
 
+## Repository Safeguards
+
+`main` is protected: force pushes and branch deletion are blocked, conversations must be resolved,
+and pull requests must pass the **PowerShell tests** and **Tooling, documentation, and package**
+Quality checks before merging. Direct maintainer pushes remain possible, so a green check is still
+required before tagging a release.
+
+Private vulnerability reporting, Dependabot security updates, secret scanning and push protection are
+enabled. Report security issues through [SECURITY.md](SECURITY.md), not a public issue.
+
 ## Review Expectations
 
 Review prioritizes correctness, package safety, dependency direction, maintainability, UI behavior,

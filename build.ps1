@@ -123,7 +123,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'install.ps1') -Destination (Join
 
 foreach ($document in @(
     'README.md', 'CATALOG.md', 'CHANGELOG.md', 'CONTRIBUTING.md',
-    'SUPPORT.md', 'CODE_OF_CONDUCT.md', 'LICENSE', 'package.json', '.node-version'
+    'SUPPORT.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md', 'LICENSE', 'package.json', '.node-version'
 )) {
     Copy-Item -LiteralPath (Join-Path $projectRoot $document) -Destination (Join-Path $releaseRoot $document) -Force
 }

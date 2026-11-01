@@ -24,6 +24,9 @@ layout issues; include display scale and window size.
 
 Support is maintained on a best-effort basis; no response-time commitment is currently offered.
 
+For security vulnerabilities, follow the [security policy](SECURITY.md) and use private reporting
+instead of a public issue.
+
 ## Feature Proposals
 
 Describe the user problem and observable outcome, and check existing issues for similar proposals.

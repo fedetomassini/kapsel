@@ -8,6 +8,7 @@ published; unreleased work is identified explicitly.
 - Publish release notes from the matching changelog section, including download and checksum steps.
 - Show a visible focus outline and accessible descriptions across provider, catalog, context and status controls.
 - Measure catalog load, filtering, inventory mapping and grid binding, and document the recorded baseline.
+- Publish a security policy and private vulnerability reporting entry point.
 
 ## 1.4.0 - Operational Visibility (2026-10-31)
 

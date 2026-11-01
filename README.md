@@ -14,7 +14,7 @@ update availability. Releases use a script-based ZIP by default, with executable
 an explicit option.
 
 [User guide](docs/USER_GUIDE.md) · [Development](docs/DEVELOPMENT.md) ·
-[Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md)
+[Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md)
 
 ## What Kapsel Does
 
@@ -355,6 +355,7 @@ See [Releasing](docs/RELEASING.md) for the complete preparation, verification, a
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Issue, catalog, branch, commit, and pull-request workflow. |
 | [docs/README.md](./docs/README.md) | Documentation index for users, contributors, and maintainers. |
 | [SUPPORT.md](./SUPPORT.md) | Troubleshooting entry point and issue diagnostics. |
+| [SECURITY.md](./SECURITY.md) | Supported versions and private vulnerability reporting. |
 
 ## Project Status
 
