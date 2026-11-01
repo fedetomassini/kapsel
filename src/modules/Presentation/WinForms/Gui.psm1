@@ -38,7 +38,8 @@ function Show-KapselGui {
     param(
         [Parameter(Mandatory = $true)]
         [object] $Metadata,
-        [ValidateRange(1, 3600)] [int] $DelayWarningSeconds = 120
+        [ValidateRange(1, 3600)] [int] $DelayWarningSeconds = 120,
+        [ValidateRange(1, 86400)] [int] $RecoveryGuidanceSeconds = 600
     )
 
     [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
@@ -133,7 +134,7 @@ function Show-KapselGui {
     $contextView = New-KapselContextView -Metadata $Metadata
     $shell = New-KapselShellView -Form $form -Sidebar $sidebar.Panel -Catalog $catalogView.Panel -Context $contextView.Panel -Metadata $Metadata
     $form.Controls.Add($shell.Panel)
-    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; RestartRequired = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow; CurrentStarted = [DateTime]::UtcNow; Delayed = $false; Cancellation = $null; Cancelled = 0; FailedItems = @(); RestartItems = @(); Provider = '' }
+    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; RestartRequired = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow; CurrentStarted = [DateTime]::UtcNow; Delayed = $false; GuidanceShown = $false; Cancellation = $null; Cancelled = 0; FailedItems = @(); RestartItems = @(); Provider = '' }
     $operationTimer = New-Object System.Windows.Forms.Timer
     $operationTimer.Interval = 200
     $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false; Status = 'Checking'; Diagnostics = @{}; CheckedAt = $null }
@@ -478,6 +479,7 @@ function Show-KapselGui {
                     $operation.Current = $event.Application
                     $operation.CurrentStarted = [DateTime]::UtcNow
                     $operation.Delayed = $false
+                    $operation.GuidanceShown = $false
                     Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($operation.Action): $($event.Application)."
                     continue
                 }
@@ -525,6 +527,11 @@ function Show-KapselGui {
                 Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($operation.Current) has been running for at least $DelayWarningSeconds seconds. It may still be working. Stop pending prevents subsequent packages; the active installer will not be killed. Closing remains blocked until it returns." -Level Warning
             }
             if ($operation.Delayed) { $shell.StatusLabel.Text += ' | Taking longer than expected' }
+            if (-not $finished -and $currentElapsed -ge $RecoveryGuidanceSeconds -and -not $operation.GuidanceShown) {
+                $operation.GuidanceShown = $true
+                Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($operation.Current) is still running after at least $RecoveryGuidanceSeconds seconds. If no installer window is visible, check the taskbar and Alt+Tab for a hidden elevation or setup window and finish or cancel it there. Do not kill the installer or close Kapsel; closing stays blocked until it returns. Use Diagnostics to save a report, then save your work and restart Windows if it never returns." -Level Warning
+            }
+            if ($operation.GuidanceShown) { $shell.StatusLabel.Text += ' | See Activity for recovery steps' }
             if ($operation.Cancellation.IsCancellationRequested) { $shell.StatusLabel.Text += ' | Stopping after current app' }
             if (-not $finished) { return }
             [void] $operation.Batch.Worker.EndInvoke($operation.Batch.Handle)

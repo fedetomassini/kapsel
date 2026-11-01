@@ -302,6 +302,7 @@ namespace KapselSmoke {
             $count = if ($action.ContainsKey('Count')) { $action.Count } else { 2 }
             if (-not ($runningControls | Where-Object { $_.Current.Name -like "*0/$count completed*" })) { throw 'Running package progress is missing.' }
             Wait-KapselSmokeText -Window $window -Pattern '*has been running for at least 1 seconds*' | Out-Null
+            Wait-KapselSmokeText -Window $window -Pattern '*Do not kill the installer*' | Out-Null
             if ($action.ContainsKey('Stop')) {
                 $stopButton = $controls | Where-Object { $_.Current.Name -eq 'Stop pending' } | Select-Object -First 1
                 [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $stopButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null

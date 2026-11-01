@@ -50,4 +50,4 @@ Import-Module (Join-Path $projectRoot 'src\modules\Presentation\WinForms\Gui.psm
         PackageOperationRunner\Start-KapselPackageBatch -Plan $Plan -Action $Action -ProviderStatus $ProviderStatus -ProcessInvoker $invoker -CancellationToken $CancellationToken
     }
 }
-Gui\Show-KapselGui -Metadata (Get-KapselProductMetadata) -DelayWarningSeconds 1
+Gui\Show-KapselGui -Metadata (Get-KapselProductMetadata) -DelayWarningSeconds 1 -RecoveryGuidanceSeconds 1

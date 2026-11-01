@@ -64,10 +64,19 @@ The progress bar counts finished applications, so it can stay still while one in
 Elapsed time and the active-operation indicator continue. Current package execution has no timeout
 or cancellation action; closing the window is blocked during a batch.
 
-Check provider/installer activity and its logs before interrupting it. Force-terminating Kapsel is
-not a rollback and may leave a child installer running or a package partially applied. After the
-provider has completed or been recovered using its documented procedure, refresh inventory and
-inspect the installed state before retrying.
+After two minutes Activity warns that the package is taking longer than expected. After ten minutes
+it adds guided manual recovery:
+
+1. Look for a hidden elevation prompt or installer window in the taskbar and Alt+Tab. Finish or
+   cancel it there; Kapsel cannot interact with it.
+2. Use **Diagnostics** to save a report before making changes.
+3. Do not kill the installer or Kapsel. **Stop pending** only prevents queued packages from
+   starting; it does not stop the active one. Closing remains blocked until the installer returns.
+4. If it never returns, save your work and restart Windows. Kapsel is not a rollback mechanism;
+   force-terminating it may leave a child installer running or a package partially applied.
+
+After the provider has completed or been recovered using its documented procedure, refresh inventory
+and inspect the installed state before retrying.
 
 ## Favorites Do Not Persist
 

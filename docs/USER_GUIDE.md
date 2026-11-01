@@ -76,8 +76,11 @@ move and minimize the window while a package runs. A second batch and window clo
 until completion. **Stop pending** prevents subsequent packages from starting; the active installer
 is allowed to finish. Cancelled apps are reported separately from failures. After two minutes per
 app, Activity warns that execution is taking longer than expected; this is not proof of a hang.
-There is no forced installer timeout or rollback. A genuinely stuck installer keeps the batch active
-and closing blocked; inspect the provider/installer before taking manual action outside Kapsel.
+After ten minutes, it adds guided manual recovery steps: check the taskbar and Alt+Tab for a hidden
+elevation or installer window and finish or cancel it there, save a **Diagnostics** report, and do
+not kill the installer. There is no forced installer timeout or rollback. A genuinely stuck
+installer keeps the batch active and closing blocked; restart Windows only after saving your work,
+then refresh inventory and inspect the installed state before retrying.
 
 **Retry failed** repeats only failed apps from the last batch, using its action and provider and a
 fresh confirmation. Successes, unchanged and cancelled apps are not retried. The button is disabled

@@ -88,7 +88,8 @@ app and the loop continues. Progress counts completed entries. On completion the
 worker and requests a new inventory scan. Package execution uses `Start-Process -Wait` without a
 forced timeout. A CancellationToken is checked only before each app starts and produces Cancelled
 events for queued items. The UI owns the source and disposes it after worker completion; cancellation
-never stops the active provider. A 120-second UI warning per app is informational, not a hang detector.
+never stops the active provider. A 120-second UI warning per app is informational, not a hang
+detector; after 600 seconds the UI adds guided manual recovery and never terminates the installer.
 Failed event items are retained for a confirmed same-action/same-provider retry; other outcomes are
 excluded. Cancellation races at the scheduling boundary may allow the just-started app to finish.
 

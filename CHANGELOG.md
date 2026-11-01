@@ -10,6 +10,7 @@ published; unreleased work is identified explicitly.
 - Measure catalog load, filtering, inventory mapping and grid binding, and document the recorded baseline.
 - Publish a security policy and private vulnerability reporting entry point.
 - Verify the extracted release package, checksum and launcher from a path with spaces in CI.
+- Add guided manual recovery after ten minutes per package without killing the active installer.
 
 ## 1.4.0 - Operational Visibility (2026-10-31)
 
