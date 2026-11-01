@@ -20,6 +20,7 @@ Kapsel's docs describe shipping behavior. Start at the root [README](../README.m
 | [Development](DEVELOPMENT.md) | Local setup, commands and change workflow |
 | [Architecture](ARCHITECTURE.md) | Layer ownership, worker lifecycle and adapter contracts |
 | [Testing](TESTING.md) | Pester boundaries, fixtures and UI smoke tests |
+| [Performance](PERFORMANCE.md) | Deterministic catalog benchmark, baseline and comparison method |
 | [Catalog maintenance](CATALOG.md) | Source schema, normalization and provider-ID verification |
 | [Releasing](RELEASING.md) | Versioning, package contents, publication and recovery |
 | [Changelog](../CHANGELOG.md) | Released history and unreleased repository changes |
