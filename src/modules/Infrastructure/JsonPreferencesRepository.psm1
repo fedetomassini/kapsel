@@ -22,7 +22,7 @@ function Read-KapselUserPreferences {
     param([string] $Path = (Get-KapselPreferencesPath))
 
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        return [PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @() }
+        return [PSCustomObject] @{ SchemaVersion = 2; FavoriteKeys = @(); Provider = ''; Window = $null }
     }
     try {
         $document = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop

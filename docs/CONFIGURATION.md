@@ -15,8 +15,9 @@ Chocolatey; Kapsel does not offer a separate source-management configuration fil
 
 | Data | Default location | Lifecycle |
 | --- | --- | --- |
-| Favorites | `%LOCALAPPDATA%\Kapsel\preferences.json` | Read on startup, written on favorite changes |
-| Provider output | `%LOCALAPPDATA%\Kapsel\Logs\*.stdout.log` and `*.stderr.log` | Written per package process; no automatic retention limit |
+| Favorites and UI state | `%LOCALAPPDATA%\Kapsel\preferences.json` | Read on startup, written on favorite, provider or window changes |
+| Provider output | `%LOCALAPPDATA%\Kapsel\Logs\*.stdout.log` and `*.stderr.log` | Written per package process; `*.log` files older than 30 days are removed on startup |
+| Diagnostics export | User-selected path | Written only when **Diagnostics** is used; redacted and never uploaded |
 | Inventory export | System temporary directory, `kapsel-inventory-<guid>.json` | Removed after a winget scan |
 | Activity and inventory | App memory | Reset on restart |
 | Release build output | Repository `dist/releases` | Recreated by builds; ignored by Git |
@@ -29,14 +30,18 @@ Current preference shape:
 
 ```json
 {
-  "SchemaVersion": 1,
-  "FavoriteKeys": ["sevenzip"]
+  "SchemaVersion": 2,
+  "FavoriteKeys": ["sevenzip"],
+  "Provider": "winget",
+  "Window": { "Left": 120, "Top": 80, "Width": 1280, "Height": 800, "Maximized": false }
 }
 ```
 
-The writer emits schema version 1. Legacy favorites-only files are accepted and gain a schema version
-when next saved. Explicit unsupported versions, missing favorites arrays and non-string entries are
-rejected. Failed reads disable favorite editing and show recovery guidance in Activity.
+The writer emits schema version 2. Schema 1 and legacy favorites-only files are accepted and gain
+the newer shape when next saved. Provider is limited to `winget` or `choco`; an unavailable saved
+provider falls back to the first available one. Saved window bounds are used only when they intersect
+a connected display. Explicit unsupported versions, missing favorites arrays and non-string entries
+are rejected. Failed reads disable favorite editing and show recovery guidance in Activity.
 
 Before writing, the existing file is validated again. A damaged or future-format document is left
 untouched. Valid files are replaced atomically using a sibling temporary file; failed writes retain

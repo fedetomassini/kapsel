@@ -1,6 +1,8 @@
 # winget and Chocolatey process adapter.
 Set-StrictMode -Version Latest
 
+Import-Module (Join-Path $PSScriptRoot 'DiagnosticsAdapter.psm1') -Force
+
 function Test-KapselCommandAvailable {
     [CmdletBinding()]
     param(
@@ -32,8 +34,9 @@ function Invoke-KapselPackageProcess {
         throw 'The package command does not define an executable.'
     }
 
-    $logDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Kapsel\Logs'
+    $logDirectory = Get-KapselLogDirectory
     [void] (New-Item -ItemType Directory -Path $logDirectory -Force)
+    [void] (Remove-KapselExpiredPackageLogs -Directory $logDirectory)
     $logName = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), [Guid]::NewGuid().ToString('N')
     $outputPath = Join-Path $logDirectory "$logName.stdout.log"
     $errorPath = Join-Path $logDirectory "$logName.stderr.log"

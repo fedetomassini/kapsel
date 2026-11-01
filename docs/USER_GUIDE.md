@@ -99,7 +99,18 @@ Chocolatey's no-update code depends on enhanced exit codes. A normal success mes
 not prove a newer version was installed. Kapsel does not roll back a partially completed batch.
 
 Activity is session-local. Provider stdout/stderr backup files are under
-`%LOCALAPPDATA%\Kapsel\Logs`. Favorites are under `%LOCALAPPDATA%\Kapsel\preferences.json` by default.
+`%LOCALAPPDATA%\Kapsel\Logs`; `*.log` files older than 30 days are removed on startup.
+Favorites are under `%LOCALAPPDATA%\Kapsel\preferences.json` by default.
+
+**Diagnostics** in the status bar saves a local text report with the product/runtime versions,
+provider paths and versions, inventory status, last batch counters and recent log file names. It
+redacts profile paths and account names, omits package output and preference contents, and never
+uploads anything. The save dialog chooses the destination; the report is only written if you confirm.
+
+Kapsel remembers the active provider and the window size/position for the next launch. Saved bounds
+that no longer intersect a connected display are ignored. This state is stored with favorites in the
+same preferences file.
+
 See [Configuration](CONFIGURATION.md) for the preference override and
 [Troubleshooting](TROUBLESHOOTING.md) for recovery steps.
 

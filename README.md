@@ -8,9 +8,10 @@ Kapsel is a native Windows application for installing and updating a curated sof
 through `winget` or Chocolatey. It is written in PowerShell and Windows Forms, requires no web
 runtime, and keeps package operations explicit and reviewable.
 
-Version `1.3.0` adds persistent application favorites on top of responsive background operations,
-visible package progress, installed-app detection, and update availability. Releases use a
-script-based ZIP by default, with executable builds available as an explicit option.
+Version `1.4.0` adds exportable diagnostics, restart-required reporting and remembered UI preferences
+on top of responsive background operations, visible package progress, installed-app detection, and
+update availability. Releases use a script-based ZIP by default, with executable builds available as
+an explicit option.
 
 [User guide](docs/USER_GUIDE.md) · [Development](docs/DEVELOPMENT.md) ·
 [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md)
@@ -196,8 +197,10 @@ The progress bar counts completed applications (including failures), not downloa
 animated indicator remains active while the current package runs. You can search, move, or minimize
 the window during installation; another batch and closing the window are blocked until it finishes.
 Activity explains each result directly, including when no newer version is available. Those
-applications count as unchanged, not failed. Real failures include the provider's output in
-Activity; log files in `%LOCALAPPDATA%\Kapsel\Logs` remain available as a backup.
+applications count as unchanged, not failed. Restart-required results are counted separately and
+name the affected apps. Real failures include the provider's output in Activity; log files in
+`%LOCALAPPDATA%\Kapsel\Logs` remain available as a backup and `*.log` files older than 30 days are
+removed on startup.
 Result classification follows the documented [winget return codes](https://github.com/microsoft/winget-cli/blob/master/doc/windows/package-manager/winget/returnCodes.md)
 and [Chocolatey upgrade exit codes](https://docs.chocolatey.org/en-us/choco/commands/upgrade/#exit-codes).
 Chocolatey's explicit no-update code requires its enhanced exit codes feature; otherwise its
@@ -211,10 +214,14 @@ When update lookup fails, installed state remains visible and the update check i
 
 Favorites are stored per Windows user in `%LOCALAPPDATA%\Kapsel\preferences.json`. The file uses a
 versioned JSON format and is written atomically, so installing a new Kapsel release does not replace
-personal preferences.
+personal preferences. Schema 2 also remembers the active provider and window size/position; schema 1
+and legacy favorites-only files are upgraded on the next write.
 Unsupported schemas and malformed files are preserved; favorites are disabled when their file cannot
 be loaded. Activity explains how to back up or move the file before resetting it. Writes also check
 the existing document so a file changed after startup cannot be silently downgraded.
+
+**Diagnostics** in the status bar exports a redacted local report with runtime, provider, inventory,
+last-batch and log metadata. It omits package output and preference contents and is never uploaded.
 
 ## Architecture
 
@@ -310,10 +317,13 @@ The release build creates:
 ```txt
 dist/releases/Kapsel-<version>-windows/
 dist/releases/Kapsel-<version>-windows.zip
+dist/releases/Kapsel-<version>-windows.zip.sha256
 ```
 
 The default release is a script-based ZIP. Extract the complete archive and open `kapsel.cmd`.
 Keep the adjacent `src` and `assets` directories. No executable compilation dependency is needed.
+Each archive is published with a sibling `.sha256` file; compare it before extracting a downloaded
+build (`Get-FileHash .\Kapsel-<version>-windows.zip -Algorithm SHA256`).
 
 An optional unsigned executable can still be built with `npm run build:exe`; it also depends on
 the adjacent directories. This is an opt-in development artifact, excluded from automated releases.
@@ -326,12 +336,13 @@ Update `package.json` and `ProductMetadata.psm1` to the same version, commit the
 a matching semantic-version tag:
 
 ```powershell
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
 The Quality workflow validates source changes and pull requests. The Release workflow runs the
-same checks, builds the distributable ZIP, and publishes it only from a matching version tag.
+same checks, builds the distributable ZIP, verifies its SHA-256 checksum, and publishes both assets
+only from a matching version tag.
 See [Releasing](docs/RELEASING.md) for the complete preparation, verification, and recovery procedure.
 
 ## Documentation
@@ -347,7 +358,9 @@ See [Releasing](docs/RELEASING.md) for the complete preparation, verification, a
 
 ## Project Status
 
-`v1.3.0` adds persistent favorites while retaining reliable package execution, inventory visibility, and Activity reporting. Kapsel remains focused on one job:
+`v1.4.0` adds exportable diagnostics, restart-required reporting and remembered UI preferences while
+retaining reliable package execution, inventory visibility, and Activity reporting. Kapsel remains
+focused on one job:
 making a curated Windows application catalog easy to search, install, and update from one native
 interface.
 

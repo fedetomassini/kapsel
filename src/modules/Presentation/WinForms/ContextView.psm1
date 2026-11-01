@@ -18,6 +18,7 @@ function Get-KapselFeatureLines {
         'Persistent favorites stored per Windows user.',
         'Focused application details, installed versions and provider identifiers.',
         'Visible and hidden selection counts, with keyboard selection shortcuts.',
+        'Remembered provider and window layout.',
         '',
         'OPERATIONS',
         'Batch install and update workflows.',
@@ -25,7 +26,9 @@ function Get-KapselFeatureLines {
         'winget and Chocolatey provider support.',
         'Explicit confirmation before process execution.',
         'Unsupported packages are skipped and reported.',
+        'Restart-required results are counted separately from successes.',
         'Results and provider errors are explained directly in Activity.',
+        'Exportable, redacted diagnostics for local troubleshooting.',
         '',
         'FOSS',
         'Free and Open Source Software has source code available under an open license.'
@@ -38,13 +41,18 @@ function Get-KapselChangelogLines {
 
     return @(
         "VERSION $($Metadata.Version)",
+        'Exportable diagnostics with local path and account redaction.',
+        'Restart-required results reported separately from successes.',
+        'Remembered package provider and window layout.',
+        'Thirty-day retention for provider log files.',
+        'Catalog lint and incremental static-analysis gates.',
+        'Parallel CI checks with cached Pester and PSScriptAnalyzer.',
+        'SHA-256 checksum published and verified with each release.',
         'Persistent favorites with a dedicated catalog view.',
-        'Fixed install and update confirmation crashes.',
         'Responsive background operations with visible progress.',
         'Installed-app detection and update availability.',
         'No available updates are reported as unchanged, not failed.',
         'Provider error details and summaries appear in Activity.',
-        'Readable wrapping text and preserved Activity reading position.',
         'Script-based release ZIP; executable builds are optional.'
     )
 }

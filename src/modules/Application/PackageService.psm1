@@ -79,7 +79,30 @@ function Invoke-KapselPackageAction {
     }
 }
 
+function Get-KapselPackageBatchSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [ValidateSet('Install', 'Upgrade')] [string] $Action,
+        [int] $Succeeded = 0,
+        [int] $Unchanged = 0,
+        [int] $RestartRequired = 0,
+        [int] $Failed = 0,
+        [int] $Cancelled = 0
+    )
+
+    $succeededLabel = if ($Unchanged -gt 0 -or $RestartRequired -gt 0) { 'completed' } else { 'succeeded' }
+    $text = "$Action finished: $Succeeded $succeededLabel"
+    if ($Unchanged -gt 0) { $text += ", $Unchanged unchanged" }
+    if ($RestartRequired -gt 0) { $text += ", $RestartRequired restart required" }
+    $text += ", $Failed failed"
+    if ($Cancelled -gt 0) { $text += ", $Cancelled cancelled" }
+
+    $level = if ($Failed -gt 0 -or $RestartRequired -gt 0 -or $Cancelled -gt 0) { 'Warning' } else { 'Success' }
+    return [PSCustomObject] @{ Text = $text; Level = $level }
+}
+
 Export-ModuleMember -Function @(
     'New-KapselPackagePlan',
-    'Invoke-KapselPackageAction'
+    'Invoke-KapselPackageAction',
+    'Get-KapselPackageBatchSummary'
 )

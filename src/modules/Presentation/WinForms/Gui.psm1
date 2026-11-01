@@ -3,10 +3,12 @@ Set-StrictMode -Version Latest
 
 $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Import-Module (Join-Path $moduleRoot 'Application\CatalogService.psm1') -Force
+Import-Module (Join-Path $moduleRoot 'Application\DiagnosticsService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Application\PackageService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Application\InventoryService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Application\PreferenceService.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\AssetProvider.psm1') -Force
+Import-Module (Join-Path $moduleRoot 'Infrastructure\DiagnosticsAdapter.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\JsonCatalogRepository.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\PackageManagerAdapter.psm1') -Force
 Import-Module (Join-Path $moduleRoot 'Infrastructure\PackageInventoryAdapter.psm1') -Force
@@ -52,8 +54,10 @@ function Show-KapselGui {
     $favoriteKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $preferencesWarning = ''
     $preferencesWritable = $true
+    $preferenceState = [PSCustomObject] @{ FavoriteKeys = @(); Provider = ''; Window = $null }
     try {
-        foreach ($key in @(Get-KapselFavorites -Applications $catalog -PreferencesReader { Read-KapselUserPreferences })) {
+        $preferenceState = Get-KapselPreferenceState -Applications $catalog -PreferencesReader { Read-KapselUserPreferences }
+        foreach ($key in @($preferenceState.FavoriteKeys)) {
             [void] $favoriteKeys.Add([string] $key)
         }
     }
@@ -78,6 +82,16 @@ function Show-KapselGui {
     $brandImagePath = Get-KapselBrandImagePath
     $windowIcon = New-KapselWindowIcon -ImagePath $brandImagePath
     if ($null -ne $windowIcon) { $form.Icon = $windowIcon }
+    if ($null -ne $preferenceState.Window) {
+        $savedWindow = $preferenceState.Window
+        $savedBounds = New-Object System.Drawing.Rectangle($savedWindow.Left, $savedWindow.Top, $savedWindow.Width, $savedWindow.Height)
+        $onScreen = @([System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.WorkingArea.IntersectsWith($savedBounds) }).Count -gt 0
+        if ($onScreen) {
+            $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+            $form.Bounds = $savedBounds
+            if ($savedWindow.Maximized) { $form.WindowState = [System.Windows.Forms.FormWindowState]::Maximized }
+        }
+    }
 
     $sidebarParameters = @{
         Metadata         = $Metadata
@@ -85,17 +99,46 @@ function Show-KapselGui {
         Categories       = $snapshot.Categories
         DefaultCategory  = $defaultCategory
         ProviderStatus   = $providerStatus
+        PreferredProvider = $preferenceState.Provider
         BrandImagePath   = $brandImagePath
     }
     $sidebar = New-KapselSidebarView @sidebarParameters
+    $getWindowState = {
+        $bounds = if ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Normal) { $form.Bounds } else { $form.RestoreBounds }
+        return [PSCustomObject] @{
+            Left      = [int] $bounds.Left
+            Top       = [int] $bounds.Top
+            Width     = [int] $bounds.Width
+            Height    = [int] $bounds.Height
+            Maximized = ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Maximized)
+        }
+    }
+    $saveUiPreferences = {
+        if (-not $preferencesWritable) { return }
+        try {
+            [void] (Save-KapselPreferences -FavoriteKeys @($favoriteKeys) -Applications $catalog `
+                -Provider ([string] $sidebar.ProviderState.Value) -Window (& $getWindowState) -PreferencesWriter {
+                    param($preferences)
+                    Write-KapselUserPreferences -Preferences $preferences
+                })
+        }
+        catch {
+            Write-Verbose "UI preferences were not saved: $($_.Exception.Message)"
+        }
+    }
+    # Provider handlers run first, so the new provider is already in ProviderState.
+    $sidebar.WingetButton.Add_Click({ & $saveUiPreferences })
+    $sidebar.ChocoButton.Add_Click({ & $saveUiPreferences })
     $catalogView = New-KapselCatalogView -Snapshot $snapshot
     $contextView = New-KapselContextView -Metadata $Metadata
     $shell = New-KapselShellView -Form $form -Sidebar $sidebar.Panel -Catalog $catalogView.Panel -Context $contextView.Panel -Metadata $Metadata
     $form.Controls.Add($shell.Panel)
-    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow; CurrentStarted = [DateTime]::UtcNow; Delayed = $false; Cancellation = $null; Cancelled = 0; FailedItems = @(); Provider = '' }
+    $operation = [PSCustomObject] @{ Batch = $null; Busy = $false; Action = ''; Total = 0; Completed = 0; Succeeded = 0; Unchanged = 0; RestartRequired = 0; Failed = 0; Current = ''; Started = [DateTime]::UtcNow; CurrentStarted = [DateTime]::UtcNow; Delayed = $false; Cancellation = $null; Cancelled = 0; FailedItems = @(); RestartItems = @(); Provider = '' }
     $operationTimer = New-Object System.Windows.Forms.Timer
     $operationTimer.Interval = 200
     $inventory = [PSCustomObject] @{ Scan = $null; Snapshot = $null; Filter = 'All'; Pending = $false; Status = 'Checking'; Diagnostics = @{}; CheckedAt = $null }
+    $logDirectory = Get-KapselLogDirectory
+    try { [void] (Remove-KapselExpiredPackageLogs -Directory $logDirectory) } catch { Write-Verbose "Package log retention skipped: $($_.Exception.Message)" }
     $inventoryTimer = New-Object System.Windows.Forms.Timer
     $inventoryTimer.Interval = 250
     $viewState = [PSCustomObject] @{ VisibleApplications = @() }
@@ -386,9 +429,11 @@ function Show-KapselGui {
             $operation.Completed = 0
             $operation.Succeeded = 0
             $operation.Unchanged = 0
+            $operation.RestartRequired = 0
             $operation.Failed = 0
             $operation.Cancelled = 0
             $operation.FailedItems = @()
+            $operation.RestartItems = @()
             $operation.Provider = $provider
             $operation.Cancellation = New-Object System.Threading.CancellationTokenSource
             $operation.Current = 'Starting'
@@ -445,9 +490,19 @@ function Show-KapselGui {
                 }
                 if ($event.Kind -eq 'Completed' -and $event.Result.Succeeded) {
                     $unchanged = $event.Result.Status -in @('UpToDate', 'AlreadyInstalled')
-                    if ($unchanged) { $operation.Unchanged++ } else { $operation.Succeeded++ }
-                    $level = if ($unchanged) { 'Info' } elseif ($event.Result.Status -eq 'RestartRequired') { 'Warning' } else { 'Success' }
-                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($event.Application): $($event.Result.Message)" -Level $level
+                    $restartRequired = $event.Result.Status -eq 'RestartRequired'
+                    if ($unchanged) { $operation.Unchanged++ }
+                    elseif ($restartRequired) {
+                        $operation.RestartRequired++
+                        $operation.RestartItems += $event.Application
+                    }
+                    else { $operation.Succeeded++ }
+                    $level = if ($unchanged) { 'Info' } elseif ($restartRequired) { 'Warning' } else { 'Success' }
+                    $resultMessage = if ($restartRequired) {
+                        "$($event.Result.Message) Provider exit code $($event.Result.ExitCode)."
+                    }
+                    else { $event.Result.Message }
+                    Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "$($event.Application): $resultMessage" -Level $level
                     if ($event.Result.Provider -eq 'choco' -and -not [string]::IsNullOrWhiteSpace($event.Result.Diagnostics)) {
                         Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $event.Result.Diagnostics
                     }
@@ -474,13 +529,12 @@ function Show-KapselGui {
             if (-not $finished) { return }
             [void] $operation.Batch.Worker.EndInvoke($operation.Batch.Handle)
             if ($operation.Batch.Worker.Streams.Error.Count -gt 0) { throw ($operation.Batch.Worker.Streams.Error | Out-String) }
-            $shell.StatusLabel.Text = "$($operation.Action) finished: $($operation.Succeeded) succeeded, $($operation.Failed) failed"
-            if ($operation.Unchanged -gt 0) {
-                $shell.StatusLabel.Text = "$($operation.Action) finished: $($operation.Succeeded) completed, $($operation.Unchanged) unchanged, $($operation.Failed) failed"
+            $summary = Get-KapselPackageBatchSummary -Action $operation.Action -Succeeded $operation.Succeeded -Unchanged $operation.Unchanged -RestartRequired $operation.RestartRequired -Failed $operation.Failed -Cancelled $operation.Cancelled
+            $shell.StatusLabel.Text = $summary.Text
+            if ($operation.RestartRequired -gt 0) {
+                Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Restart Windows to finish applying changes for: $($operation.RestartItems -join ', ')." -Level Warning
             }
-            $summaryLevel = if ($operation.Failed -gt 0) { 'Warning' } else { 'Success' }
-            if ($operation.Cancelled -gt 0) { $shell.StatusLabel.Text += ", $($operation.Cancelled) cancelled"; $summaryLevel = 'Warning' }
-            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $shell.StatusLabel.Text -Level $summaryLevel
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message $summary.Text -Level $summary.Level
         }
         catch {
             $finished = $true
@@ -508,7 +562,9 @@ function Show-KapselGui {
         if ($operation.Busy) {
             $eventArgs.Cancel = $true
             [void] [System.Windows.Forms.MessageBox]::Show($form, 'Wait for the package operation to finish before closing Kapsel. You can minimize the window.', $Metadata.Name)
+            return
         }
+        & $saveUiPreferences
     })
 
     $catalogView.RefreshButton.Add_Click({ & $startInventoryScan })
@@ -520,6 +576,31 @@ function Show-KapselGui {
         }
     })
     $shell.RetryButton.Add_Click({ & $runPackageAction $operation.Action -Retry })
+    $shell.DiagnosticsButton.Add_Click({
+        $dialog = $null
+        try {
+            $generatedAt = Get-Date
+            $dataDirectory = Split-Path -Parent (Get-KapselPreferencesPath)
+            $report = New-KapselDiagnosticsReport -Metadata $Metadata -ProviderStatus $providerStatus `
+                -InventoryDiagnostics $inventory.Diagnostics -Inventory $inventory -Operation $operation `
+                -LogFiles @(Get-KapselPackageLogFiles -Directory $logDirectory -Limit 20) `
+                -DataDirectory $dataDirectory -LogDirectory $logDirectory -GeneratedAt $generatedAt
+            $dialog = New-Object System.Windows.Forms.SaveFileDialog
+            $dialog.Title = 'Save Kapsel diagnostics'
+            $dialog.Filter = 'Text files (*.txt)|*.txt|All files (*.*)|*.*'
+            $dialog.FileName = Get-KapselDiagnosticsFileName -GeneratedAt $generatedAt
+            $dialog.InitialDirectory = [Environment]::GetFolderPath('MyDocuments')
+            if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) { return }
+            $savedPath = Write-KapselDiagnosticsFile -Path $dialog.FileName -Text $report
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Diagnostics saved to $savedPath. Local paths and account names are redacted." -Level Success
+        }
+        catch {
+            Write-KapselActivity -ActivityPanel $contextView.ActivityPanel -Message "Diagnostics could not be saved: $($_.Exception.Message)" -Level Error
+        }
+        finally {
+            if ($null -ne $dialog) { $dialog.Dispose() }
+        }
+    })
     $catalogView.AllButton.Add_Click({ & $setInventoryFilter 'All' })
     $catalogView.FavoritesButton.Add_Click({ & $setInventoryFilter 'Favorites' })
     $catalogView.InstalledButton.Add_Click({ & $setInventoryFilter 'Installed' })
@@ -585,10 +666,11 @@ function Show-KapselGui {
         if ([string]::IsNullOrWhiteSpace($key)) { return }
         $isFavorite = -not $favoriteKeys.Contains($key)
         try {
-            $updated = @(Set-KapselFavorite -FavoriteKeys @($favoriteKeys) -Applications $catalog -Key $key -IsFavorite $isFavorite -PreferencesWriter {
-                param($preferences)
-                Write-KapselUserPreferences -Preferences $preferences
-            })
+            $updated = @(Set-KapselFavorite -FavoriteKeys @($favoriteKeys) -Applications $catalog -Key $key -IsFavorite $isFavorite `
+                -Provider ([string] $sidebar.ProviderState.Value) -Window (& $getWindowState) -PreferencesWriter {
+                    param($preferences)
+                    Write-KapselUserPreferences -Preferences $preferences
+                })
             $favoriteKeys.Clear()
             foreach ($favoriteKey in $updated) { [void] $favoriteKeys.Add([string] $favoriteKey) }
             $application = $applicationsByKey[$key]

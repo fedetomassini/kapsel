@@ -8,7 +8,8 @@ Presentation. Concrete I/O is passed as scriptblocks by composition roots/worker
 | `CatalogService.psm1` | Catalog snapshot and discovery use cases |
 | `PackageService.psm1` | Supported/unsupported plan, availability checks and one package action |
 | `InventoryService.psm1` | Provider inventory interpretation and installed/update filtering |
-| `PreferenceService.psm1` | Favorite loading/saving with injected storage |
+| `PreferenceService.psm1` | Favorite, provider and window-state loading/saving with injected storage |
+| `DiagnosticsService.psm1` | Redacted local support report from injected runtime state |
 
 Keep command construction and status semantics in Domain. Put I/O in adapters rather than importing
 an adapter here. Tests live in `tests/Application`; runner tests there also cover presentation-owned

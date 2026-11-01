@@ -4,10 +4,32 @@ Import-Module (Join-Path $ProjectRoot 'src\modules\Domain\UserPreferences.psm1')
 Describe 'User preference rules' {
     It 'accepts legacy favorites arrays but rejects explicit unsupported schema versions' {
         $legacy = ConvertFrom-KapselPreferencesDocument -Document ([PSCustomObject] @{ FavoriteKeys = @('firefox') })
-        $legacy.SchemaVersion | Should Be 1
-        foreach ($version in @(0, 2, '1', $null)) {
+        $legacy.SchemaVersion | Should Be 2
+        foreach ($version in @(0, 3, '1', $null)) {
             { ConvertFrom-KapselPreferencesDocument -Document ([PSCustomObject] @{ SchemaVersion = $version; FavoriteKeys = @('firefox') }) } | Should Throw
         }
+    }
+
+    It 'normalizes provider and valid window state while ignoring malformed UI state' {
+        $document = ConvertFrom-KapselPreferencesDocument -Document ([PSCustomObject] @{
+            SchemaVersion = 2
+            FavoriteKeys  = @('firefox')
+            Provider      = 'CHOCO'
+            Window        = [PSCustomObject] @{ Left = 10; Top = 20; Width = 1280; Height = 800; Maximized = $true }
+        })
+
+        $document.Provider | Should Be 'choco'
+        $document.Window.Width | Should Be 1280
+        $document.Window.Maximized | Should Be $true
+
+        $fallback = ConvertFrom-KapselPreferencesDocument -Document ([PSCustomObject] @{
+            SchemaVersion = 2
+            FavoriteKeys  = @('firefox')
+            Provider      = 'unsupported'
+            Window        = [PSCustomObject] @{ Left = 0; Top = 0; Width = 10; Height = 10 }
+        })
+        $fallback.Provider | Should Be ''
+        $fallback.Window | Should Be $null
     }
 
     It 'rejects malformed preference shapes rather than treating them as empty favorites' {

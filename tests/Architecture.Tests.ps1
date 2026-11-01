@@ -84,7 +84,11 @@ Describe 'Kapsel architecture' {
 
         $qualitySource | Should Match 'contents: read'
         $qualitySource | Should Match 'pull_request:'
-        $qualitySource | Should Match 'docs:catalog:check'
+        $qualitySource | Should Match 'npm run check:source'
+        $qualitySource | Should Match 'npm run check:docs'
+        $qualitySource | Should Match 'npm run analyze:ci'
+        $package = Get-Content -LiteralPath (Join-Path $ProjectRoot 'package.json') -Raw | ConvertFrom-Json
+        $package.scripts.'check:docs' | Should Match 'docs:catalog:check'
         $releaseSource | Should Match "tags:\s+- 'v\*\.\*\.\*'"
         $releaseSource | Should Match 'contents: write'
         $releaseSource | Should Not Match 'workflow_dispatch'

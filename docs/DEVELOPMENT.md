@@ -21,6 +21,13 @@ The install flag allows replacing the inbox Pester publisher version; tests stil
 require 4.10.1. If prompted for the NuGet provider or gallery trust, review and follow the PowerShell
 Gallery setup instructions. Kapsel never installs test modules on app startup.
 
+Static analysis is optional locally but required in CI:
+
+```powershell
+Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force -SkipPublisherCheck
+npm run analyze
+```
+
 ## First Run
 
 ```powershell
@@ -46,8 +53,13 @@ Pester tests. UI checks need an unlocked interactive Windows desktop.
 | `npm run test:tooling` | Documentation validator regression tests | Node built-in test runner; temporary fixtures |
 | `npm run docs:catalog` | Regenerate root CATALOG.md | Writes generated Markdown from validated catalog |
 | `npm run docs:catalog:check` | Check generated catalog drift | Read-only |
+| `npm run catalog:lint` | Validate catalog fields, categories, links and duplicate identifiers | Read-only; duplicate provider IDs are reported as alias warnings |
 | `npm run docs:check` | Check local documentation links and versions | Node built-ins; no network |
-| `npm run check` | Validate, test Pester/tooling, check docs/catalog, build package | Creates the script ZIP under dist/releases |
+| `npm run analyze` | PSScriptAnalyzer with the repository settings and baseline | Skips with a notice when the module is unavailable |
+| `npm run analyze:ci` | PSScriptAnalyzer gate for CI | Fails when PSScriptAnalyzer is missing or finds new findings |
+| `npm run check:source` | Syntax and Pester suites | CI test job |
+| `npm run check:docs` | Tooling, catalog lint, catalog drift and documentation checks | CI static job |
+| `npm run check` | All source/static checks plus package build | Creates the script ZIP under dist/releases |
 | `npm run test:ui` | Exercise real window and inventory | Interactive desktop; installed provider/source may be queried |
 | `npm run test:ui:packages` | Exercise confirmations and background outcomes | Interactive desktop; fixture replaces real package execution |
 | `npm run bench:catalog` | Measure warmed search, grid binding and bulk-selection components | STA; real and synthetic 1k/5k catalogs; writes dist/catalog-performance.json |

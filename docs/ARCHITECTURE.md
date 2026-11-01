@@ -122,15 +122,19 @@ Inventory is session-local and provider-specific; it is not a complete Windows s
 
 ## Persistence and Diagnostics
 
-Preferences use `{ SchemaVersion: 1, FavoriteKeys: string[] }`. Domain validates the document and
-normalizes keys; legacy favorites-only files are accepted. Explicit unsupported schemas and invalid
-arrays are rejected. Application injects storage; infrastructure revalidates existing files before
-writes, stages a sibling temporary file and atomically replaces valid files. Failed reads/writes keep
-the original file. The UI disables favorites on a load failure and displays recovery guidance.
+Preferences use `{ SchemaVersion: 2, FavoriteKeys: string[], Provider: string, Window: object }`.
+Domain validates the document and normalizes keys; legacy favorites-only files and schema 1 are
+accepted. Explicit unsupported schemas and invalid arrays are rejected. Provider is restricted to
+`winget`, `choco` or empty, and malformed window bounds are dropped without blocking favorites.
+Application injects storage; infrastructure revalidates existing files before writes, stages a
+sibling temporary file and atomically replaces valid files. Failed reads/writes keep the original
+file. The UI disables favorites on a load failure and displays recovery guidance.
 
 Defaults and the `KAPSEL_DATA_DIRECTORY` preference override are documented in
 [Configuration](CONFIGURATION.md). The override does not redirect package logs.
-Activity is transient; provider stdout/stderr files persist without a retention policy today.
+Activity is transient. Provider stdout/stderr files persist under `%LOCALAPPDATA%\Kapsel\Logs` and
+are pruned after 30 days. The Diagnostics action builds a redacted local report from injected
+runtime state; it does not upload data or include package output.
 
 ## Extending the App
 

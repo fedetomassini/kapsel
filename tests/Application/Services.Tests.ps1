@@ -52,4 +52,18 @@ Describe 'Application services' {
 
         { Invoke-KapselPackageAction -Action Install -Application $application -Provider winget -ProviderStatus $status -ProcessInvoker $invoker } | Should Throw
     }
+
+    It 'reports restart-required outcomes separately from successes' {
+        $summary = Get-KapselPackageBatchSummary -Action Install -Succeeded 1 -Unchanged 0 -RestartRequired 2 -Failed 0 -Cancelled 0
+
+        $summary.Text | Should Be 'Install finished: 1 completed, 2 restart required, 0 failed'
+        $summary.Level | Should Be 'Warning'
+    }
+
+    It 'preserves the existing success summary when nothing needs attention' {
+        $summary = Get-KapselPackageBatchSummary -Action Install -Succeeded 2 -Unchanged 0 -RestartRequired 0 -Failed 0 -Cancelled 0
+
+        $summary.Text | Should Be 'Install finished: 2 succeeded, 0 failed'
+        $summary.Level | Should Be 'Success'
+    }
 }

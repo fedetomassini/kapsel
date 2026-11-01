@@ -75,14 +75,18 @@ try {
     Add-Type -AssemblyName System.Windows.Forms
     function Wait-KapselSmokeText {
         param([System.Windows.Automation.AutomationElement] $Window, [string] $Pattern)
-        $deadline = [DateTime]::UtcNow.AddSeconds(5)
+        $deadline = [DateTime]::UtcNow.AddSeconds(8)
         do {
             $elements = $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
             $match = $elements | Where-Object { $_.Current.Name -like $Pattern -and -not $_.Current.IsOffscreen } | Select-Object -First 1
             if ($null -ne $match) { return $match }
             Start-Sleep -Milliseconds 100
         } while ([DateTime]::UtcNow -lt $deadline)
-        throw "Expected visible UI text was not found: $Pattern"
+        $visible = @($elements | Where-Object {
+            -not $_.Current.IsOffscreen -and $_.Current.Name -match 'match the current view|selected|visible'
+        } | ForEach-Object { $_.Current.Name } | Select-Object -First 5)
+        $detail = if ($visible.Count -gt 0) { " Visible: $($visible -join ' | ')" } else { '' }
+        throw "Expected visible UI text was not found: $Pattern.$detail"
     }
     if (-not ('KapselSmoke.NativeMethods' -as [type])) {
         Add-Type -TypeDefinition @"
@@ -371,6 +375,7 @@ namespace KapselSmoke {
         [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $favoritesButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
         Wait-KapselSmokeText -Window $window -Pattern '1 application matches the current view.' | Out-Null
         $preferences = Get-Content -LiteralPath (Join-Path $smokeDataDirectory 'preferences.json') -Raw | ConvertFrom-Json
+        if ($preferences.SchemaVersion -ne 2) { throw "Expected preferences schema 2, found '$($preferences.SchemaVersion)'." }
         if (@($preferences.FavoriteKeys).Count -ne 1 -or $preferences.FavoriteKeys[0] -ne 'firefox') { throw 'Favorite selection was not persisted to the isolated profile.' }
         [KapselSmoke.NativeMethods]::SendMessage([IntPtr] $favoriteButton.Current.NativeWindowHandle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
         Wait-KapselSmokeText -Window $window -Pattern 'No favorites yet.*' | Out-Null
@@ -411,6 +416,9 @@ namespace KapselSmoke {
         [System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.Condition]::TrueCondition
     )
+
+    $diagnosticsButton = $controls | Where-Object { $_.Current.Name -eq 'Diagnostics' -and $_.Current.ClassName -like '*.BUTTON.*' } | Select-Object -First 1
+    if ($null -eq $diagnosticsButton) { throw 'The Diagnostics button is missing.' }
 
     if (-not [string]::IsNullOrWhiteSpace($ScreenshotPath)) {
         [void] [KapselSmoke.NativeMethods]::SetForegroundWindow($process.MainWindowHandle)

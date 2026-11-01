@@ -141,3 +141,20 @@ Describe 'Minimum-window layout' {
         finally { $form.Dispose() }
     }
 }
+
+Describe 'Sidebar provider preference' {
+    It 'uses a saved available provider and falls back when it is missing' {
+        $metadata = Get-KapselProductMetadata
+        $status = [PSCustomObject] @{ WingetAvailable = $true; ChocoAvailable = $true }
+        $preferred = New-KapselSidebarView -Metadata $metadata -DefaultCategory All -ProviderStatus $status -PreferredProvider choco
+        $fallback = New-KapselSidebarView -Metadata $metadata -DefaultCategory All -ProviderStatus $status -PreferredProvider unavailable
+        try {
+            $preferred.ProviderState.Value | Should Be 'choco'
+            $fallback.ProviderState.Value | Should Be 'winget'
+        }
+        finally {
+            $preferred.Panel.Dispose()
+            $fallback.Panel.Dispose()
+        }
+    }
+}

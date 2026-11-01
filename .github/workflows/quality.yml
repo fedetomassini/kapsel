@@ -14,10 +14,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Validate source and package
+  tests:
+    name: PowerShell tests
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Pester is the slowest setup step. Cache the exact module version and skip
+      # the gallery round-trip when the runner restores it.
+      - name: Cache Pester 4.10.1
+        id: pester-cache
+        uses: actions/cache@v4
+        with:
+          path: ~\Documents\WindowsPowerShell\Modules\Pester
+          key: pester-4.10.1-windows
+
+      - name: Install Pester 4.10.1
+        if: steps.pester-cache.outputs.cache-hit != 'true'
+        shell: powershell
+        run: Install-Module Pester -RequiredVersion 4.10.1 -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Validate syntax and run tests
+        shell: powershell
+        run: |
+          npm run check:source
+          exit $LASTEXITCODE
+
+  static:
+    name: Tooling, documentation, and package
+    runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -28,27 +57,23 @@ jobs:
         with:
           node-version-file: '.node-version'
 
-      - name: Validate PowerShell syntax
-        run: npm run validate
+      - name: Cache PSScriptAnalyzer
+        id: analyzer-cache
+        uses: actions/cache@v4
+        with:
+          path: ~\Documents\WindowsPowerShell\Modules\PSScriptAnalyzer
+          key: psscriptanalyzer-1.25.0-windows
 
-      - name: Setup Pester 4
-        shell: pwsh
-        run: |
-          Install-Module Pester -RequiredVersion 4.10.1 -Force -Scope CurrentUser -SkipPublisherCheck
-          Import-Module Pester -RequiredVersion 4.10.1 -Force
+      - name: Install PSScriptAnalyzer
+        if: steps.analyzer-cache.outputs.cache-hit != 'true'
+        shell: powershell
+        run: Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Force -Scope CurrentUser -SkipPublisherCheck
 
-      - name: Run tests
-        run: npm test
+      - name: Validate tooling, documentation, and package
+        run: npm run check:docs
 
-      - name: Test documentation tooling
-        run: npm run test:tooling
-
-      - name: Validate documentation and versions
-        run: npm run docs:check
-
-      - name: Verify generated application catalog
-        run: npm run docs:catalog:check
+      - name: Run PSScriptAnalyzer baseline gate
+        run: npm run analyze:ci
 
       - name: Validate release package structure
-        shell: pwsh
-        run: ./build.ps1 -SkipExecutable
+        run: npm run build:check

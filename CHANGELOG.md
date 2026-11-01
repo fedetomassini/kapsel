@@ -3,8 +3,16 @@
 This file records user-visible and architectural changes. Release dates are added when a version is
 published; unreleased work is identified explicitly.
 
-## Unreleased
+## 1.4.0 - Operational Visibility (2026-10-31)
 
+- Add a **Diagnostics** action that exports a redacted, local support report with provider, inventory, batch and log metadata.
+- Retain provider log files for 30 days and remove only expired `*.log` files on startup.
+- Report restart-required results separately from successes while preserving the provider exit code and affected app names.
+- Remember the active package provider and window size/position, ignoring saved bounds that fall outside connected displays.
+- Add a catalog lint gate for required fields, categories, https links and duplicate provider identifiers.
+- Add an incremental PSScriptAnalyzer gate with an empty baseline and documented exclusions.
+- Run Pester and static checks as parallel CI jobs and cache the pinned Pester/PSScriptAnalyzer modules.
+- Publish a SHA-256 checksum beside each release archive and verify it before publication.
 - Add Stop pending and confirmed Retry failed actions; active installers are never killed by cancellation.
 - Warn after two minutes per package, retaining elapsed times and results while waiting safely.
 - Keep previous inventory during refresh/failure and label its provider, timestamp and freshness.

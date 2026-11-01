@@ -3,22 +3,25 @@
 ## Baseline Gates
 
 Run `npm run check` for the local/CI baseline: syntax, Pester, generated catalog, documentation
-links/version consistency, and release packaging. Node.js 24+ and Pester 4.10.1 are required.
-See [Development](DEVELOPMENT.md) for setup.
+links/version consistency, catalog lint, PSScriptAnalyzer and release packaging. Node.js 24+,
+Pester 4.10.1 and (for the full gate) PSScriptAnalyzer are required. `npm run analyze` skips static
+analysis with a notice when PSScriptAnalyzer is missing; CI uses `npm run analyze:ci`, which fails
+instead. See [Development](DEVELOPMENT.md) for setup.
 
 `npm run test:tooling` runs Node's built-in tests for documentation link validation, including
 broken targets, duplicate heading anchors, encoded paths, fenced examples and release-tree escapes.
 
 `npm run validate` uses PowerShell's parser. It checks syntax, not style, provider behavior or
-runtime correctness. PSScriptAnalyzer is not currently part of the repository gates.
+runtime correctness. PSScriptAnalyzer runs with `.psscriptanalyzer.settings.psd1`; findings are
+compared against `.psscriptanalyzer-baseline.json`, so only new findings fail the gate.
 
 ## Test Ownership
 
 | Location | Responsibilities |
 | --- | --- |
-| `tests/Domain` | Literal search, normalization, command flags, outcomes, inventory parsing, favorites |
-| `tests/Application` | Use cases, injected adapters, batch event behavior and runspace orchestration |
-| `tests/Infrastructure` | Catalog/preferences I/O and package process result contracts |
+| `tests/Domain` | Literal search, normalization, command flags, outcomes, inventory parsing, favorites, diagnostics redaction |
+| `tests/Application` | Use cases, injected adapters, batch summaries, diagnostics report and runspace orchestration |
+| `tests/Infrastructure` | Catalog/preferences I/O, package process result contracts, diagnostics export and log retention |
 | `tests/Architecture.Tests.ps1` | Required module organization and dependency guardrails |
 | `tests/Presentation` | Grid focus/sort/scroll, bulk selection, details and minimum-layout scale regressions |
 | `tests/Fixtures/PackageUi.ps1` | Real WinForms shell with simulated package/inventory adapters |
@@ -51,8 +54,9 @@ a provider is present, and can fail because a configured provider/source is unav
 `test:ui:packages` forcibly chooses the fixture launcher. It tests install/update confirmations,
 background progress, responsive search, unchanged results and failure details without installing
 anything. Inventory is also simulated. It checks hidden selections, empty states, focused details,
-keyboard selection/search/refresh and favorite persistence in a temporary isolated profile that is
-removed after the run. The user's favorites are not modified.
+keyboard selection/search/refresh, the Diagnostics action, favorite persistence and schema 2
+preferences in a temporary isolated profile that is removed after the run. The user's favorites are
+not modified.
 The fixture shortens the package-delay warning to one second (production default: 120 seconds).
 It checks the warning, stop-pending results, retry-only-failed confirmation and previous inventory
 during refresh. Worker tests cover cancellation both before scheduling and during an active fake call.
@@ -61,7 +65,7 @@ Capture a screenshot or exercise a packaged launcher:
 
 ```powershell
 .\scripts\Test-UiSmoke.ps1 -ScreenshotPath .\dist\ui-smoke.png
-.\scripts\Test-UiSmoke.ps1 -LauncherPath .\dist\releases\Kapsel-1.3.0-windows\kapsel.ps1
+.\scripts\Test-UiSmoke.ps1 -LauncherPath .\dist\releases\Kapsel-1.4.0-windows\kapsel.ps1
 .\scripts\Test-UiSmoke.ps1 -ExercisePackageActions -WindowWidth 1180 -WindowHeight 700
 ```
 

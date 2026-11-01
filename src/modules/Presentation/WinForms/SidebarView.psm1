@@ -40,6 +40,7 @@ function New-KapselSidebarView {
         [string[]] $Categories = @(),
         [Parameter(Mandatory = $true)] [string] $DefaultCategory,
         [Parameter(Mandatory = $true)] [object] $ProviderStatus,
+        [AllowNull()] [string] $PreferredProvider,
         [AllowNull()] [string] $BrandImagePath
     )
 
@@ -98,7 +99,15 @@ function New-KapselSidebarView {
     $chocoButton.TabIndex = 1
     $providerPanel.Controls.AddRange(@($wingetButton, $chocoButton))
 
-    $initialProvider = if ($ProviderStatus.WingetAvailable) { 'winget' } elseif ($ProviderStatus.ChocoAvailable) { 'choco' } else { $null }
+    $initialProvider = if ($PreferredProvider -eq 'winget' -and $ProviderStatus.WingetAvailable) {
+        'winget'
+    }
+    elseif ($PreferredProvider -eq 'choco' -and $ProviderStatus.ChocoAvailable) {
+        'choco'
+    }
+    elseif ($ProviderStatus.WingetAvailable) { 'winget' }
+    elseif ($ProviderStatus.ChocoAvailable) { 'choco' }
+    else { $null }
     $providerState = [PSCustomObject] @{ Value = $initialProvider }
     $providerControlState = [PSCustomObject] @{
         ProviderState = $providerState

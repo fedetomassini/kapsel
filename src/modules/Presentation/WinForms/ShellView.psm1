@@ -43,10 +43,11 @@ function New-KapselShellView {
     $status.Margin = New-Object System.Windows.Forms.Padding(0, 1, 0, 0)
     $status.Padding = New-Object System.Windows.Forms.Padding(12, 0, 12, 0)
     $status.BackColor = $colors.Window
-    $status.ColumnCount = 6
+    $status.ColumnCount = 7
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 150)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 80)))
+    [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
     [void] $status.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
@@ -70,7 +71,8 @@ function New-KapselShellView {
     $status.Controls.Add($versionLabel, 3, 0)
     $cancelButton = New-KapselButton -Text 'Stop pending' -Width 116
     $retryButton = New-KapselButton -Text 'Retry failed' -Width 116
-    foreach ($button in @($cancelButton, $retryButton)) {
+    $diagnosticsButton = New-KapselButton -Text 'Diagnostics' -Width 100
+    foreach ($button in @($cancelButton, $retryButton, $diagnosticsButton)) {
         $button.Height = 24
         $button.Margin = New-Object System.Windows.Forms.Padding(4, 2, 0, 2)
     }
@@ -78,6 +80,7 @@ function New-KapselShellView {
     $retryButton.Enabled = $false
     $status.Controls.Add($cancelButton, 4, 0)
     $status.Controls.Add($retryButton, 5, 0)
+    $status.Controls.Add($diagnosticsButton, 6, 0)
 
     $windowChrome = New-KapselWindowTitleBar -Form $Form -Metadata $Metadata
     $shell.Controls.Add($windowChrome.Panel, 0, 0)
@@ -96,6 +99,7 @@ function New-KapselShellView {
         WindowChrome = $windowChrome
         CancelButton = $cancelButton
         RetryButton = $retryButton
+        DiagnosticsButton = $diagnosticsButton
     }
 }
 

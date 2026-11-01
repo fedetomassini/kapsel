@@ -3,8 +3,10 @@
 ## Release Contract
 
 The default artifact is `dist/releases/Kapsel-<version>-windows.zip`, containing a script-based
-Windows app. `npm run build:exe` is an opt-in unsigned executable build, not part of automated
-publication. The executable also depends on adjacent app files.
+Windows app. Each build also writes `Kapsel-<version>-windows.zip.sha256`; the release workflow
+recomputes and verifies the digest before uploading either asset. `npm run build:exe` is an opt-in
+unsigned executable build, not part of automated publication. The executable also depends on
+adjacent app files.
 
 Versions use `X.Y.Z` in `package.json` and `src/modules/Shared/ProductMetadata.psm1`. A publication
 tag must be exactly `vX.Y.Z`. The Release workflow checks all three values before publishing.
@@ -47,24 +49,26 @@ version/search/favorites, and inspect packaged documentation offline. Existing u
 should survive because they are outside the release directory. Do not substitute source-tree
 testing for extracted-archive verification.
 
-Checksums, signing and a formal clean-machine test matrix are not currently implemented;
-an unsigned script ZIP does not provide publisher certification.
+Checksums are generated and verified by the build and release workflow. Signing and a formal
+clean-machine test matrix are not currently implemented; an unsigned script ZIP does not provide
+publisher certification.
 
 ## Publish
 
 Commit and merge the release preparation, then create a matching tag on the intended commit:
 
 ```powershell
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
 Replace the example with the prepared version. Do not tag an uncommitted local build. The workflow:
 
 1. Resolves package/metadata/tag version agreement.
-2. Runs syntax, Pester, catalog and documentation checks.
-3. Builds the default script archive.
-4. Uses GitHub CLI to create the release with generated notes or upload the archive to an existing
+2. Runs syntax, Pester, catalog, documentation and PSScriptAnalyzer checks.
+3. Builds the default script archive and its SHA-256 checksum.
+4. Verifies the checksum against the archive bytes.
+5. Uses GitHub CLI to create the release with generated notes or upload both assets to an existing
    release with `--clobber`.
 
 Quality has read-only repository permissions. Release grants write permission to its publishing

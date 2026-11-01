@@ -5,7 +5,7 @@ Describe 'JSON preferences repository' {
     It 'returns empty preferences when the file does not exist' {
         $preferences = Read-KapselUserPreferences -Path (Join-Path $TestDrive 'missing\preferences.json')
 
-        $preferences.SchemaVersion | Should Be 1
+        $preferences.SchemaVersion | Should Be 2
         @($preferences.FavoriteKeys).Count | Should Be 0
     }
 
@@ -14,7 +14,7 @@ Describe 'JSON preferences repository' {
         Write-KapselUserPreferences -Path $path -Preferences ([PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @('firefox', 'vlc') })
         $preferences = Read-KapselUserPreferences -Path $path
 
-        $preferences.SchemaVersion | Should Be 1
+        $preferences.SchemaVersion | Should Be 2
         @($preferences.FavoriteKeys) | Should Be @('firefox', 'vlc')
     }
 
@@ -27,7 +27,7 @@ Describe 'JSON preferences repository' {
     }
 
     It 'refuses to replace damaged or future preferences and preserves their exact bytes' {
-        foreach ($original in @('{broken', '{"SchemaVersion":2,"FavoriteKeys":["firefox"],"FutureSetting":true}')) {
+        foreach ($original in @('{broken', '{"SchemaVersion":3,"FavoriteKeys":["firefox"],"FutureSetting":true}')) {
             $path = Join-Path $TestDrive 'protected.json'
             [IO.File]::WriteAllText($path, $original)
             $before = [Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
@@ -57,7 +57,7 @@ Describe 'JSON preferences repository' {
         $path = Join-Path $TestDrive 'legacy.json'
         $legacy = '{"FavoriteKeys":["firefox"]}'
         [IO.File]::WriteAllText($path, $legacy)
-        (Read-KapselUserPreferences -Path $path).SchemaVersion | Should Be 1
+        (Read-KapselUserPreferences -Path $path).SchemaVersion | Should Be 2
         [IO.File]::ReadAllText($path) | Should Be $legacy
         Write-KapselUserPreferences -Path $path -Preferences ([PSCustomObject] @{ SchemaVersion = 1; FavoriteKeys = @('vlc') })
         @((Read-KapselUserPreferences -Path $path).FavoriteKeys) | Should Be @('vlc')

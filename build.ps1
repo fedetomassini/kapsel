@@ -204,5 +204,16 @@ finally {
     $archive.Dispose()
 }
 
+# Publish a stable checksum next to the archive; the release workflow verifies it before upload.
+$checksumPath = "$zipPath.sha256"
+$checksum = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$archiveName = [System.IO.Path]::GetFileName($zipPath)
+"$checksum  $archiveName" | Set-Content -LiteralPath $checksumPath -Encoding ASCII
+$recorded = ((Get-Content -LiteralPath $checksumPath -Raw).Trim() -split '\s+')[0]
+if ($recorded -ne $checksum) {
+    throw "Release checksum verification failed for $archiveName."
+}
+
 Write-Host "Release package: $releaseRoot"
 Write-Host "Release archive: $zipPath"
+Write-Host "Release checksum: $checksumPath"

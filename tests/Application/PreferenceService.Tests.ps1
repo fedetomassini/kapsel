@@ -23,7 +23,23 @@ Describe 'Favorite application service' {
         })
 
         $result | Should Be @('firefox', 'vlc')
-        $script:savedPreferences.SchemaVersion | Should Be 1
+        $script:savedPreferences.SchemaVersion | Should Be 2
         @($script:savedPreferences.FavoriteKeys) | Should Be @('firefox', 'vlc')
+    }
+
+    It 'persists provider and window state with the same write' {
+        $script:savedPreferences = $null
+        $window = [PSCustomObject] @{ Left = 100; Top = 80; Width = 1280; Height = 800; Maximized = $false }
+
+        $document = Save-KapselPreferences -FavoriteKeys @('firefox') -Applications @([PSCustomObject] @{ Key = 'firefox' }) `
+            -Provider 'choco' -Window $window -PreferencesWriter {
+                param($preferences)
+                $script:savedPreferences = $preferences
+            }
+
+        $document.Provider | Should Be 'choco'
+        $script:savedPreferences.Provider | Should Be 'choco'
+        $script:savedPreferences.Window.Width | Should Be 1280
+        $script:savedPreferences.SchemaVersion | Should Be 2
     }
 }
