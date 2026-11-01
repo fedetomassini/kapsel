@@ -35,12 +35,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~\Documents\WindowsPowerShell\Modules\Pester
-          key: pester-4.10.1-windows
+          key: pester-4.10.1-windows-v2
 
       - name: Install Pester 4.10.1
         if: steps.pester-cache.outputs.cache-hit != 'true'
         shell: powershell
-        run: Install-Module Pester -RequiredVersion 4.10.1 -Force -Scope CurrentUser -SkipPublisherCheck
+        run: |
+          $moduleRoot = Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Modules\Pester\4.10.1'
+          if (Test-Path -LiteralPath $moduleRoot) { Remove-Item -LiteralPath $moduleRoot -Recurse -Force }
+          New-Item -ItemType Directory -Path $moduleRoot -Force | Out-Null
+          $package = Join-Path $env:TEMP 'pester-4.10.1.zip'
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Invoke-WebRequest -Uri 'https://www.powershellgallery.com/api/v2/package/Pester/4.10.1' -OutFile $package -UseBasicParsing
+          Expand-Archive -LiteralPath $package -DestinationPath $moduleRoot -Force
+          Import-Module (Join-Path $moduleRoot 'Pester.psd1') -Force
 
       - name: Resolve release version
         id: version
@@ -86,12 +94,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~\Documents\WindowsPowerShell\Modules\PSScriptAnalyzer
-          key: psscriptanalyzer-1.25.0-windows
+          key: psscriptanalyzer-1.25.0-windows-v2
 
       - name: Install PSScriptAnalyzer
         if: steps.analyzer-cache.outputs.cache-hit != 'true'
         shell: powershell
-        run: Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Force -Scope CurrentUser -SkipPublisherCheck
+        run: |
+          $moduleRoot = Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Modules\PSScriptAnalyzer\1.25.0'
+          if (Test-Path -LiteralPath $moduleRoot) { Remove-Item -LiteralPath $moduleRoot -Recurse -Force }
+          New-Item -ItemType Directory -Path $moduleRoot -Force | Out-Null
+          $package = Join-Path $env:TEMP 'psscriptanalyzer-1.25.0.zip'
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Invoke-WebRequest -Uri 'https://www.powershellgallery.com/api/v2/package/PSScriptAnalyzer/1.25.0' -OutFile $package -UseBasicParsing
+          Expand-Archive -LiteralPath $package -DestinationPath $moduleRoot -Force
+          Import-Module (Join-Path $moduleRoot 'PSScriptAnalyzer.psd1') -Force
 
       - name: Run PSScriptAnalyzer baseline gate
         run: npm run analyze:ci
