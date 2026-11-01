@@ -175,6 +175,9 @@ function New-KapselWindowTitleBar {
     $minimizeButton = New-KapselWindowButton -Name 'KapselMinimizeButton' -AccessibleName 'Minimize window' -Glyph ([char] 0xE921)
     $maximizeButton = New-KapselWindowButton -Name 'KapselMaximizeButton' -AccessibleName 'Maximize window' -Glyph ([char] 0xE922)
     $closeButton = New-KapselWindowButton -Name 'KapselCloseButton' -AccessibleName 'Close window' -Glyph ([char] 0xE8BB) -IsCloseButton
+    $minimizeButton.AccessibleDescription = 'Minimize the Kapsel window.'
+    $maximizeButton.AccessibleDescription = 'Maximize the Kapsel window.'
+    $closeButton.AccessibleDescription = 'Close the Kapsel window.'
 
     $titleBar.Controls.Add($title, 0, 0)
     $titleBar.Controls.Add($minimizeButton, 1, 0)
@@ -225,6 +228,12 @@ function New-KapselWindowTitleBar {
         }
         else {
             'Maximize window'
+        }
+        $button.AccessibleDescription = if ($sender.WindowState -eq [System.Windows.Forms.FormWindowState]::Maximized) {
+            'Restore the Kapsel window.'
+        }
+        else {
+            'Maximize the Kapsel window.'
         }
     })
 

@@ -84,6 +84,7 @@ function New-KapselContextButton {
     $button = New-KapselButton -Text $Title -Icon $Title
     $button.Name = "KapselContext$($Title)Button"
     $button.AccessibleName = $Title
+    $button.AccessibleDescription = "Show the $Title panel."
     $button.Dock = [System.Windows.Forms.DockStyle]::Fill
     $button.Margin = New-Object System.Windows.Forms.Padding(2, 3, 2, 3)
     $button.Height = 30

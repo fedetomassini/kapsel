@@ -23,7 +23,7 @@ compared against `.psscriptanalyzer-baseline.json`, so only new findings fail th
 | `tests/Application` | Use cases, injected adapters, batch summaries, diagnostics report and runspace orchestration |
 | `tests/Infrastructure` | Catalog/preferences I/O, package process result contracts, diagnostics export and log retention |
 | `tests/Architecture.Tests.ps1` | Required module organization and dependency guardrails |
-| `tests/Presentation` | Grid focus/sort/scroll, bulk selection, details and minimum-layout scale regressions |
+| `tests/Presentation` | Grid focus/sort/scroll, bulk selection, details, accessible names/tab order and minimum-layout scale regressions |
 | `tests/Fixtures/PackageUi.ps1` | Real WinForms shell with simulated package/inventory adapters |
 
 Tests must not install/update/remove software or depend on a provider being installed. Use

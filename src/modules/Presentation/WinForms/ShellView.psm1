@@ -78,6 +78,9 @@ function New-KapselShellView {
     }
     $cancelButton.Enabled = $false
     $retryButton.Enabled = $false
+    $cancelButton.AccessibleDescription = 'Stop after the active package finishes. The active installer is not killed.'
+    $retryButton.AccessibleDescription = 'Retry failed packages after confirmation.'
+    $diagnosticsButton.AccessibleDescription = 'Export a redacted local diagnostics report.'
     $status.Controls.Add($cancelButton, 4, 0)
     $status.Controls.Add($retryButton, 5, 0)
     $status.Controls.Add($diagnosticsButton, 6, 0)

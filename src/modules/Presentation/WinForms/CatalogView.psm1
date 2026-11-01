@@ -82,6 +82,7 @@ function New-KapselCatalogView {
     $fossOnly = New-Object System.Windows.Forms.CheckBox
     $fossOnly.Text = 'FOSS only'
     $fossOnly.AccessibleName = 'FOSS only'
+    $fossOnly.AccessibleDescription = 'Show only Free and Open Source Software.'
     $fossOnly.TabIndex = 1
     $fossOnly.Dock = [System.Windows.Forms.DockStyle]::Fill
     $fossOnly.ForeColor = $colors.Muted
@@ -99,6 +100,7 @@ function New-KapselCatalogView {
     $toolTip.SetToolTip($fossOnly, 'Show only Free and Open Source Software.')
 
     $refreshButton = New-KapselButton -Text 'Refresh' -Width 92 -Icon 'Refresh'
+    $refreshButton.AccessibleDescription = 'Check installed applications and available updates again. F5.'
     $refreshButton.TabIndex = 2
     $refreshButton.Dock = [System.Windows.Forms.DockStyle]::Fill
     $refreshButton.Margin = New-Object System.Windows.Forms.Padding(8, 0, 0, 0)
@@ -133,6 +135,10 @@ function New-KapselCatalogView {
     $favoritesButton.Name = 'KapselFilterFavorites'
     $installedButton.Name = 'KapselFilterInstalled'
     $updatesButton.Name = 'KapselFilterUpdates'
+    $allButton.AccessibleDescription = 'Show every application in the catalog.'
+    $favoritesButton.AccessibleDescription = 'Show favorite applications only.'
+    $installedButton.AccessibleDescription = 'Show applications detected as installed.'
+    $updatesButton.AccessibleDescription = 'Show applications with an available update.'
     $allButton.BackColor = $colors.AccentDark
     $allButton.ForeColor = $colors.Accent
     $allButton.FlatAppearance.BorderColor = $colors.Accent
@@ -198,6 +204,12 @@ function New-KapselCatalogView {
     $installButton.Margin = New-Object System.Windows.Forms.Padding(0)
     $toolTip.SetToolTip($clearButton, 'Clear every selection, including applications hidden by filters. Ctrl+Shift+A outside search.')
     $toolTip.SetToolTip($selectAllButton, 'Select applications in the current view. Ctrl+A outside search.')
+    $selectAllButton.AccessibleDescription = 'Select every application in the current view. Ctrl+A outside search.'
+    $clearButton.AccessibleDescription = 'Clear every selection, including applications hidden by filters. Ctrl+Shift+A outside search.'
+    $favoriteButton.AccessibleDescription = 'Add or remove the focused application from favorites.'
+    $openLinkButton.AccessibleDescription = 'Open the focused application official website.'
+    $upgradeButton.AccessibleDescription = 'Update selected applications that have an available update.'
+    $installButton.AccessibleDescription = 'Install selected applications.'
     $main.Add_Disposed({ param($sender, $eventArgs) $toolTip.Dispose() }.GetNewClosure())
     $selectionButtons.Controls.AddRange(@($selectAllButton, $clearButton))
     $actionButtons.Controls.AddRange(@($favoriteButton, $openLinkButton, $upgradeButton, $installButton))

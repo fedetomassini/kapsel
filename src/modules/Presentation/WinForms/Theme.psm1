@@ -182,6 +182,22 @@ function New-KapselButton {
     $button.ForeColor = $ForeColor
     $button.Font = New-KapselFont -Size 8
     $button.UseVisualStyleBackColor = $false
+    # Flat buttons otherwise give keyboard focus almost no visible cue.
+    $button | Add-Member -NotePropertyName KapselRestingBorderColor -NotePropertyValue $BorderColor
+    $button.Add_Enter({
+        param($sender, $eventArgs)
+
+        $sender.KapselRestingBorderColor = $sender.FlatAppearance.BorderColor
+        $colors = Get-KapselUiColors
+        $sender.FlatAppearance.BorderColor = if ($sender.BackColor.GetBrightness() -gt 0.6) { $colors.Window } else { $colors.Accent }
+        $sender.FlatAppearance.BorderSize = 2
+    })
+    $button.Add_Leave({
+        param($sender, $eventArgs)
+
+        $sender.FlatAppearance.BorderColor = $sender.KapselRestingBorderColor
+        $sender.FlatAppearance.BorderSize = 1
+    })
     if (-not [string]::IsNullOrWhiteSpace($Icon)) {
         $button.Image = New-KapselIconBitmap -Name $Icon -Color $ForeColor
         if ($null -ne $button.Image) {

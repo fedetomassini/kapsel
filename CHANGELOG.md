@@ -6,6 +6,7 @@ published; unreleased work is identified explicitly.
 ## Unreleased
 
 - Publish release notes from the matching changelog section, including download and checksum steps.
+- Show a visible focus outline and accessible descriptions across provider, catalog, context and status controls.
 
 ## 1.4.0 - Operational Visibility (2026-10-31)
 

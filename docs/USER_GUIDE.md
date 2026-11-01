@@ -38,7 +38,11 @@ opens the focused application's catalog link in your browser; it does not instal
 | `F6` / `Shift+F6` | Move forward/backward through the main navigation regions |
 
 Inside search, `Ctrl+A` keeps its normal text-selection behavior. Tab and Shift+Tab navigate controls;
-the confirmation dialog remains part of the keyboard journey.
+the confirmation dialog remains part of the keyboard journey. Every interactive control has a visible
+focus outline and an accessible name. A complete keyboard path is: choose a provider with Tab and the
+arrow keys, search with `Ctrl+F`, press `Down` to enter the catalog, select with `Space`, then Tab
+through the action rows to **Install** or **Update** and confirm with Enter. **Stop pending**,
+**Retry failed** and **Diagnostics** follow at the end of the tab order.
 
 ## Understand Inventory
 
