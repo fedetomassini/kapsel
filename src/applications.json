@@ -139,7 +139,7 @@
 		"choco": "na",
 		"content": "BlurAutoClicker",
 		"description": "An Auto-clicker with a few advanced features and generally better performance than popular alternatives.",
-		"link": "https://blur009.vercel.app/projects/blur-autoclicker/",
+		"link": "https://autoclicker.blur009.com/",
 		"winget": "Blur009.BlurAutoClicker",
 		"foss": true
 	},
@@ -1166,7 +1166,7 @@
 		"content": "RustDesk",
 		"description": "RustDesk is a free and open-source remote desktop application. It provides a secure way to connect to remote machines and access desktop environments.",
 		"link": "https://rustdesk.com/",
-		"winget": "RustDesk.RustDesk",
+		"winget": "na",
 		"foss": true
 	},
 	"rustlang": {
@@ -1297,7 +1297,7 @@
 	},
 	"teamviewer": {
 		"category": "Utilities",
-		"choco": "teamviewer9",
+		"choco": "teamviewer",
 		"content": "TeamViewer",
 		"description": "TeamViewer is a popular remote access and support software that allows you to connect to and control remote devices.",
 		"link": "https://www.teamviewer.com/",
@@ -1417,7 +1417,7 @@
 		"choco": "na",
 		"content": "Visual C++ 2015-2022 32-bit",
 		"description": "Visual C++ 2015-2022 32-bit redistributable package installs runtime components of Visual C++ libraries required to run 32-bit applications.",
-		"link": "https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads",
+		"link": "https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist",
 		"winget": "Microsoft.VCRedist.2015+.x86",
 		"foss": false
 	},
@@ -1426,7 +1426,7 @@
 		"choco": "na",
 		"content": "Visual C++ 2015-2022 64-bit",
 		"description": "Visual C++ 2015-2022 64-bit redistributable package installs runtime components of Visual C++ libraries required to run 64-bit applications.",
-		"link": "https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads",
+		"link": "https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist",
 		"winget": "Microsoft.VCRedist.2015+.x64",
 		"foss": false
 	},
@@ -1756,11 +1756,11 @@
 	},
 	"whatsapp": {
 		"category": "Communications",
-		"choco": "whatsapp",
+		"choco": "na",
 		"content": "WhatsApp",
 		"description": "WhatsApp Desktop provides messaging, voice calls, and video calls from Windows.",
 		"link": "https://www.whatsapp.com/download",
-		"winget": "WhatsApp.WhatsApp",
+		"winget": "na",
 		"foss": false
 	},
 	"mattermost": {
@@ -1796,7 +1796,7 @@
 		"content": "Insomnia",
 		"description": "Insomnia is an API client for REST, GraphQL, gRPC, and other API development workflows.",
 		"link": "https://insomnia.rest/",
-		"winget": "Kong.Insomnia",
+		"winget": "Insomnia.Insomnia",
 		"foss": true
 	},
 	"dbeaver": {
@@ -1805,7 +1805,7 @@
 		"content": "DBeaver",
 		"description": "DBeaver is a universal database client for SQL development and database administration.",
 		"link": "https://dbeaver.io/",
-		"winget": "dbeaver.dbeaver",
+		"winget": "DBeaver.DBeaver.Community",
 		"foss": true
 	},
 	"tableplus": {
@@ -1864,7 +1864,7 @@
 	},
 	"rider": {
 		"category": "Development",
-		"choco": "rider",
+		"choco": "jetbrains-rider",
 		"content": "Rider",
 		"description": "Rider is a JetBrains IDE for .NET and game development.",
 		"link": "https://www.jetbrains.com/rider/",
@@ -2156,7 +2156,7 @@
 		"content": "Open Hardware Monitor",
 		"description": "Open Hardware Monitor tracks temperatures, fan speeds, voltages, load, and clock speeds.",
 		"link": "https://openhardwaremonitor.org/",
-		"winget": "OpenHardwareMonitor.OpenHardwareMonitor",
+		"winget": "na",
 		"foss": true
 	},
 	"mremoteng": {
@@ -2237,7 +2237,7 @@
 		"content": "LosslessCut",
 		"description": "LosslessCut is a cross-platform tool for lossless video and audio trimming.",
 		"link": "https://github.com/mifi/lossless-cut",
-		"winget": "mifi.lossless-cut",
+		"winget": "ch.LosslessCut",
 		"foss": true
 	},
 	"filezilla": {
@@ -2246,7 +2246,7 @@
 		"content": "FileZilla",
 		"description": "FileZilla is an FTP, FTPS, and SFTP client for file transfers.",
 		"link": "https://filezilla-project.org/",
-		"winget": "FileZilla.FileZilla.Client",
+		"winget": "na",
 		"foss": true
 	},
 	"dockerdesktop": {
@@ -2282,7 +2282,7 @@
 		"content": "VMware Workstation Pro",
 		"description": "VMware Workstation Pro runs virtual machines on Windows for development, testing, and lab environments.",
 		"link": "https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion",
-		"winget": "VMware.WorkstationPro",
+		"winget": "na",
 		"foss": false
 	}
 }

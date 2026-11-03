@@ -12,6 +12,7 @@ published; unreleased work is identified explicitly.
 - Verify the extracted release package, checksum and launcher from a path with spaces in CI.
 - Add guided manual recovery after ten minutes per package without killing the active installer.
 - Add a read-only catalog health audit for official links and provider IDs, with a weekly workflow that reports broken entries without editing the catalog.
+- Refresh stale catalog links and provider IDs for BlurAutoClicker, Visual C++, TeamViewer, WhatsApp, Insomnia, DBeaver, Rider, RustDesk, Open Hardware Monitor, LosslessCut, FileZilla and VMware Workstation Pro.
 
 ## 1.4.0 - Operational Visibility (2026-10-31)
 
