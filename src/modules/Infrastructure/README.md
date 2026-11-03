@@ -9,6 +9,7 @@ This layer owns external I/O. It returns structured data and errors rather than 
 | `PackageManagerAdapter.psm1` | Provider discovery, package processes and redirected stdout/stderr |
 | `PackageInventoryAdapter.psm1` | Background provider diagnostics, read-only scans, timeout/cancellation and export cleanup |
 | `DiagnosticsAdapter.psm1` | Package-log listing/retention and atomic diagnostics export |
+| `CatalogHealth.psm1` | Read-only link and provider-ID probes with bounded concurrency and inconclusive network outcomes |
 | `AssetProvider.psm1` | Local image/icon asset loading |
 
 Preserve provider exit codes and actionable diagnostics. Package execution currently waits without a

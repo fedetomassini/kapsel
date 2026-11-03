@@ -21,7 +21,7 @@ compared against `.psscriptanalyzer-baseline.json`, so only new findings fail th
 | --- | --- |
 | `tests/Domain` | Literal search, normalization, command flags, outcomes, inventory parsing, favorites, diagnostics redaction |
 | `tests/Application` | Use cases, injected adapters, batch summaries, diagnostics report and runspace orchestration |
-| `tests/Infrastructure` | Catalog/preferences I/O, package process result contracts, diagnostics export and log retention |
+| `tests/Infrastructure` | Catalog/preferences I/O, catalog-health classification, package process result contracts, diagnostics export and log retention |
 | `tests/Architecture.Tests.ps1` | Required module organization and dependency guardrails |
 | `tests/Presentation` | Grid focus/sort/scroll, bulk selection, details, accessible names/tab order and minimum-layout scale regressions |
 | `tests/Fixtures/PackageUi.ps1` | Real WinForms shell with simulated package/inventory adapters |
@@ -57,9 +57,10 @@ anything. Inventory is also simulated. It checks hidden selections, empty states
 keyboard selection/search/refresh, the Diagnostics action, favorite persistence and schema 2
 preferences in a temporary isolated profile that is removed after the run. The user's favorites are
 not modified.
-The fixture shortens the package-delay warning to one second (production default: 120 seconds).
-It checks the warning, stop-pending results, retry-only-failed confirmation and previous inventory
-during refresh. Worker tests cover cancellation both before scheduling and during an active fake call.
+The fixture shortens the package-delay and recovery-guidance thresholds to one second (production
+defaults: 120 and 600 seconds). It checks both warnings, stop-pending results, retry-only-failed
+confirmation and previous inventory during refresh. Worker tests cover cancellation both before
+scheduling and during an active fake call.
 
 Capture a screenshot or exercise a packaged launcher:
 
@@ -76,6 +77,12 @@ Replace the package path with the current version. For an optional executable, u
 checksum, extracts into a temporary path containing spaces, checks bundled docs/assets/notices, and
 runs the extracted `kapsel.ps1 version` and `help` commands with an isolated data directory. It never
 installs software.
+
+`npm run catalog:health` performs live read-only network probes and is not part of `npm run check`.
+Pester covers its pure outcome classification and report aggregation; the probes themselves require
+network access. Timeouts, authentication prompts, rate limits and server errors are inconclusive, not
+broken. The scheduled workflow records the report and opens one issue for definite 404/410 results
+without editing the catalog.
 
 ## Manual UI Matrix
 

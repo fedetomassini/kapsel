@@ -19,6 +19,7 @@
 		"docs:catalog": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Generate-CatalogMarkdown.ps1",
 		"docs:catalog:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Generate-CatalogMarkdown.ps1 -Check",
 		"catalog:lint": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-Catalog.ps1",
+		"catalog:health": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-CatalogHealth.ps1",
 		"analyze": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-ScriptAnalyzer.ps1",
 		"analyze:ci": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-ScriptAnalyzer.ps1 -RequireModule",
 		"docs:check": "node ./scripts/Validate-Documentation.mjs",

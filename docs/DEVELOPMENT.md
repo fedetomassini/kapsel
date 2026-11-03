@@ -54,6 +54,7 @@ Pester tests. UI checks need an unlocked interactive Windows desktop.
 | `npm run docs:catalog` | Regenerate root CATALOG.md | Writes generated Markdown from validated catalog |
 | `npm run docs:catalog:check` | Check generated catalog drift | Read-only |
 | `npm run catalog:lint` | Validate catalog fields, categories, links and duplicate identifiers | Read-only; duplicate provider IDs are reported as alias warnings |
+| `npm run catalog:health` | Probe official links and winget/Chocolatey IDs | Live network; bounded concurrency/timeouts; writes a JSON report; never edits the catalog |
 | `npm run docs:check` | Check local documentation links and versions | Node built-ins; no network |
 | `npm run analyze` | PSScriptAnalyzer with the repository settings and baseline | Skips with a notice when the module is unavailable |
 | `npm run analyze:ci` | PSScriptAnalyzer gate for CI | Fails when PSScriptAnalyzer is missing or finds new findings |

@@ -93,4 +93,21 @@ Describe 'Kapsel architecture' {
         $releaseSource | Should Match 'contents: write'
         $releaseSource | Should Not Match 'workflow_dispatch'
     }
+
+    It 'schedules a read-only catalog health audit without editing the catalog' {
+        $workflowSource = Get-Content -LiteralPath (Join-Path $ProjectRoot '.github\workflows\catalog-health.yml') -Raw
+        $scriptSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts\Test-CatalogHealth.ps1') -Raw
+
+        $workflowSource | Should Match 'schedule:'
+        $workflowSource | Should Match 'workflow_dispatch:'
+        $workflowSource | Should Match 'contents: read'
+        $workflowSource | Should Match 'issues: write'
+        $workflowSource | Should Match 'Test-CatalogHealth\.ps1'
+        $workflowSource | Should Match 'upload-artifact'
+        $workflowSource | Should Not Match '(?m)^\s+push:'
+        $scriptSource | Should Match 'Invoke-KapselCatalogLinkCheck'
+        $scriptSource | Should Match 'Invoke-KapselWingetIdCheck'
+        $scriptSource | Should Match 'Invoke-KapselChocoIdCheck'
+        $scriptSource | Should Not Match 'Set-Content|Out-File'
+    }
 }

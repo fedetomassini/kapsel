@@ -11,6 +11,7 @@ published; unreleased work is identified explicitly.
 - Publish a security policy and private vulnerability reporting entry point.
 - Verify the extracted release package, checksum and launcher from a path with spaces in CI.
 - Add guided manual recovery after ten minutes per package without killing the active installer.
+- Add a read-only catalog health audit for official links and provider IDs, with a weekly workflow that reports broken entries without editing the catalog.
 
 ## 1.4.0 - Operational Visibility (2026-10-31)
 

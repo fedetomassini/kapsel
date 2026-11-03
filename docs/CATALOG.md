@@ -82,5 +82,34 @@ sorts category/app names, escapes table cells and writes UTF-8 Markdown. `-Check
 the expected output without modifying it. Custom `-OutputPath` is available for inspection; the
 committed default is root `CATALOG.md`.
 
+## Scheduled Health Audit
+
+`npm run catalog:health` probes every official link, winget identifier and Chocolatey identifier
+without installing software or editing the catalog. It uses bounded concurrency and a per-request
+timeout, and writes a JSON report with the catalog SHA-256, runtime and per-entry outcomes.
+
+```powershell
+npm run catalog:health -- -TimeoutSeconds 15 -MaxConcurrency 8 -OutputPath .\dist\catalog-health.json
+```
+
+The scheduled **Catalog health** workflow runs weekly and on manual dispatch. It uploads the report
+and opens or updates one issue when an entry returns a definite 404/410. It closes that issue when a
+later audit is clean. The catalog is never changed automatically.
+
+Outcomes are deliberately conservative:
+
+| Outcome | Meaning |
+| --- | --- |
+| `Ok` | The link or provider lookup returned a successful response. |
+| `Broken` | A definite 404/410 link or provider miss; verify the identifier before editing. |
+| `Inconclusive` | Timeout, DNS/TLS failure, 401/403/429, 5xx or another response that does not prove removal. |
+| `Skipped` | The entry has no value for that field or the probe was disabled. |
+
+winget lookups use the public `microsoft/winget-pkgs` manifest tree. The workflow passes
+`GITHUB_TOKEN` to avoid the unauthenticated rate limit. A local run without it may report many
+inconclusive winget results; that is a rate limit, not evidence that the catalog is stale. Chocolatey
+lookups use the public package feed. Network failures never justify deleting a catalog entry.
+
 Provider identifiers and official links can become stale independently of Kapsel releases. Verify
-them when reviewing catalog changes; scheduled live audits are not currently implemented.
+them when reviewing catalog changes and use the audit report as a starting point, not as automatic
+proof that an application or package should be removed.

@@ -1,0 +1,101 @@
+name: Catalog health
+
+on:
+  schedule:
+    # Weekly, Monday 04:17 UTC. The catalog is never edited automatically.
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: catalog-health
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit catalog links and provider IDs
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check catalog links and provider IDs
+        id: audit
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/Test-CatalogHealth.ps1 -TimeoutSeconds 15 -MaxConcurrency 8 -OutputPath dist/catalog-health.json -FailOnBroken
+        continue-on-error: true
+
+      - name: Upload catalog health report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: catalog-health
+          path: dist/catalog-health.json
+          if-no-files-found: warn
+
+      - name: Report broken catalog entries
+        if: always()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $reportPath = 'dist/catalog-health.json'
+          if (-not (Test-Path -LiteralPath $reportPath)) {
+            Write-Host 'No report was produced; nothing to report.'
+            exit 0
+          }
+          $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+          $broken = @($report.Entries | Where-Object {
+            $_.LinkOutcome -eq 'Broken' -or $_.WingetOutcome -eq 'Broken' -or $_.ChocoOutcome -eq 'Broken'
+          })
+          $title = 'Catalog health: broken links or provider IDs'
+          $existing = gh issue list --state open --search 'Catalog health in:title' --json number --jq '.[0].number'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not list catalog health issues.' }
+          if ($broken.Count -eq 0) {
+            if ($existing) {
+              gh issue close $existing --comment 'All catalog links and provider IDs are reachable again.'
+            }
+            Write-Host 'No broken catalog entries.'
+            exit 0
+          }
+
+          $runUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          $lines = @(
+            'The scheduled read-only catalog audit found entries that no longer resolve.',
+            '',
+            "Run: $runUrl",
+            '',
+            "Summary: links $($report.Links.Ok) ok / $($report.Links.Broken) broken / $($report.Links.Inconclusive) inconclusive; winget $($report.WingetIds.Ok) ok / $($report.WingetIds.Broken) broken / $($report.WingetIds.Inconclusive) inconclusive; Chocolatey $($report.ChocoIds.Ok) ok / $($report.ChocoIds.Broken) broken / $($report.ChocoIds.Inconclusive) inconclusive.",
+            '',
+            '| Key | Name | Link | winget | Chocolatey |',
+            '| --- | --- | --- | --- | --- |'
+          )
+          foreach ($entry in $broken) {
+            $link = if ($entry.LinkOutcome -eq 'Broken') { "Broken $($entry.LinkStatusCode): $($entry.Link)" } else { 'OK' }
+            $winget = if ($entry.WingetOutcome -eq 'Broken') { "Broken $($entry.WingetStatusCode): $($entry.WingetId)" } else { 'OK' }
+            $choco = if ($entry.ChocoOutcome -eq 'Broken') { "Broken $($entry.ChocoStatusCode): $($entry.ChocoId)" } else { 'OK' }
+            $lines += "| $($entry.Key) | $($entry.Name) | $link | $winget | $choco |"
+          }
+          $lines += ''
+          $lines += 'Only definite 404/410 responses are reported as broken. Timeouts, authentication prompts, rate limits and server errors stay inconclusive. Verify each identifier before editing the catalog; nothing is changed automatically.'
+          $bodyPath = Join-Path $env:RUNNER_TEMP 'catalog-health-issue.md'
+          [IO.File]::WriteAllText($bodyPath, ($lines -join "`n"), (New-Object Text.UTF8Encoding($false)))
+          if ($existing) {
+            gh issue edit $existing --title $title --body-file $bodyPath
+          }
+          else {
+            gh issue create --title $title --body-file $bodyPath
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish the catalog health issue.' }
+
+      - name: Fail when broken entries were found
+        if: steps.audit.outcome == 'failure'
+        run: exit 1
