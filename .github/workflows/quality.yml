@@ -27,7 +27,7 @@ jobs:
       # the gallery round-trip when the runner restores it.
       - name: Cache Pester 4.10.1
         id: pester-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~\Documents\WindowsPowerShell\Modules\Pester
           key: pester-4.10.1-windows-v2
