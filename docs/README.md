@@ -27,7 +27,7 @@ Kapsel's docs describe shipping behavior. Start at the root [README](../README.m
 
 ## Documentation Rules
 
-- Root documents are canonical; `.github` contains workflows, forms and legacy document pointers.
+- Root documents are canonical; `.github` contains workflows, issue forms, the PR template and assets.
 - Use relative links to tracked files and Markdown headings so the guides work offline in a checkout.
 - Keep descriptions in English, following the existing documentation and UI convention.
 - Update a guide with the command, behavior, persistent-format or public-contract change it describes.
