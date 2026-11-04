@@ -33,8 +33,8 @@ worker modules create separate runspaces and import the adapters they need in th
 - `src/Kapsel.ps1` supports `ui` (also `app`/`apps`), `help` (also `--help`/`-h`), and `version`.
 - `scripts/Start-Kapsel.ps1` resolves the root launcher independently of the current directory.
 - `install.ps1` writes per-user wrappers referring to the absolute source entry point; it does not
-  copy the distribution.
-- `ProductMetadata.psm1` supplies app/build identity; `package.json` must have the same version.
+  copy the application.
+- `ProductMetadata.psm1` supplies app identity; `package.json` must have the same version.
 
 ## Catalog Flow
 
@@ -142,5 +142,5 @@ runtime state; it does not upload data or include package output.
 Add deterministic rules to Domain, orchestration to Application, external I/O to Infrastructure,
 and controls to Presentation. Inject concrete I/O at the owning composition boundary. Avoid a
 provider framework, repository abstraction or generic service layer until a real contract requires
-it. Changes to preferences, provider flags, stable keys or package contents need compatibility notes
-and boundary tests. See [Testing](TESTING.md) and the directory READMEs under `src/modules`.
+it. Changes to preferences, provider flags, stable keys or the distribution model need compatibility
+notes and boundary tests. See [Testing](TESTING.md) and the directory READMEs under `src/modules`.

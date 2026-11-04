@@ -66,7 +66,7 @@ Use a short branch name describing one purpose:
 fix/catalog-search
 feat/package-state
 ui/context-panel
-docs/release-process
+docs/distribution
 catalog/add-development-tools
 ```
 
@@ -76,7 +76,7 @@ Use conventional, scoped commit messages:
 fix(domain): treat search characters literally
 feat(catalog): add verified media tools
 refactor(ui): separate context view composition
-docs: define release rollback procedure
+docs: explain source-only distribution
 ```
 
 Do not mix catalog expansion, UI redesign, and architecture changes in one pull request unless they
@@ -172,7 +172,7 @@ applicable.
 `main` is protected: force pushes and branch deletion are blocked, conversations must be resolved,
 and pull requests must pass the **PowerShell tests** and **Tooling, documentation, and package**
 Quality checks before merging. Direct maintainer pushes remain possible, so a green check is still
-required before tagging a release.
+required before merging.
 
 Private vulnerability reporting, Dependabot security updates, secret scanning and push protection are
 enabled. Report security issues through [SECURITY.md](SECURITY.md), not a public issue.

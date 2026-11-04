@@ -45,15 +45,14 @@ function Get-KapselChangelogLines {
         'Restart-required results reported separately from successes.',
         'Remembered package provider and window layout.',
         'Thirty-day retention for provider log files.',
-        'Catalog lint and incremental static-analysis gates.',
+        'Catalog lint, scheduled health audit and static-analysis gates.',
         'Parallel CI checks with a cached Pester module.',
-        'SHA-256 checksum published and verified with each release.',
         'Persistent favorites with a dedicated catalog view.',
         'Responsive background operations with visible progress.',
         'Installed-app detection and update availability.',
         'No available updates are reported as unchanged, not failed.',
         'Provider error details and summaries appear in Activity.',
-        'Script-based release ZIP; executable builds are optional.'
+        'Runs from source with no packaged executable.'
     )
 }
 

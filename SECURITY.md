@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-Security fixes target the latest published release. Upgrade to the newest release before reporting an
-issue; older versions may not receive fixes.
+Security fixes target the latest source on `main`. Update your checkout before reporting an issue;
+older snapshots may not receive fixes.
 
 ## Report a Vulnerability
 
@@ -12,7 +12,7 @@ Do not open a public issue for an unpatched vulnerability.
 
 Include:
 
-- Affected Kapsel version (`.\kapsel.ps1 version`) and whether you use the release ZIP or a checkout.
+- Affected Kapsel version (`.\kapsel.ps1 version`) and commit hash, when available.
 - Windows and Windows PowerShell versions.
 - Selected provider and its version, when relevant.
 - Reproduction steps, impact, and any suggested fix.

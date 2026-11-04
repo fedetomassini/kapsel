@@ -24,16 +24,14 @@ Describe 'Kapsel architecture' {
         }
     }
 
-    It 'provides stable development and release-cleaning scripts' {
+    It 'provides stable development scripts' {
         Test-Path -LiteralPath (Join-Path $ProjectRoot 'scripts\Start-Kapsel.ps1') | Should Be $true
-        Test-Path -LiteralPath (Join-Path $ProjectRoot 'scripts\Clean-Releases.ps1') | Should Be $true
         Test-Path -LiteralPath (Join-Path $ProjectRoot 'scripts\Generate-CatalogMarkdown.ps1') | Should Be $true
 
         $package = Get-Content -LiteralPath (Join-Path $ProjectRoot 'package.json') -Raw | ConvertFrom-Json
         $package.scripts.start | Should Match 'Start-Kapsel\.ps1'
         $package.scripts.dev | Should Match 'Start-Kapsel\.ps1'
         $package.scripts.app | Should Match 'Start-Kapsel\.ps1'
-        $package.scripts.'clean:releases' | Should Match 'Clean-Releases\.ps1'
         $package.scripts.'docs:catalog' | Should Match 'Generate-CatalogMarkdown\.ps1'
         $package.scripts.'docs:catalog:check' | Should Match 'Generate-CatalogMarkdown\.ps1 -Check'
     }
@@ -78,20 +76,31 @@ Describe 'Kapsel architecture' {
         $themeSource | Should Not Match 'DwmSetWindowAttribute'
     }
 
-    It 'separates read-only quality checks from tag-driven release publication' {
+    It 'keeps distribution source-only without an executable or release builder' {
         $qualitySource = Get-Content -LiteralPath (Join-Path $ProjectRoot '.github\workflows\quality.yml') -Raw
-        $releaseSource = Get-Content -LiteralPath (Join-Path $ProjectRoot '.github\workflows\release.yml') -Raw
+        $package = Get-Content -LiteralPath (Join-Path $ProjectRoot 'package.json') -Raw | ConvertFrom-Json
 
+        foreach ($path in @(
+            'build.ps1',
+            'scripts\Test-ReleasePackage.ps1',
+            'scripts\Clean-Releases.ps1',
+            '.github\workflows\release.yml'
+        )) {
+            Test-Path -LiteralPath (Join-Path $ProjectRoot $path) | Should Be $false
+        }
+
+        foreach ($name in @('build', 'build:check', 'build:release', 'build:exe', 'test:release', 'release', 'clean', 'clean:releases')) {
+            $package.scripts.PSObject.Properties[$name] | Should BeNullOrEmpty
+        }
+
+        Test-Path -LiteralPath (Join-Path $ProjectRoot 'docs\DISTRIBUTION.md') | Should Be $true
         $qualitySource | Should Match 'contents: read'
         $qualitySource | Should Match 'pull_request:'
         $qualitySource | Should Match 'npm run check:source'
         $qualitySource | Should Match 'npm run check:docs'
         $qualitySource | Should Match 'npm run analyze:ci'
-        $package = Get-Content -LiteralPath (Join-Path $ProjectRoot 'package.json') -Raw | ConvertFrom-Json
+        $qualitySource | Should Not Match 'build:check|test:release'
         $package.scripts.'check:docs' | Should Match 'docs:catalog:check'
-        $releaseSource | Should Match "tags:\s+- 'v\*\.\*\.\*'"
-        $releaseSource | Should Match 'contents: write'
-        $releaseSource | Should Not Match 'workflow_dispatch'
     }
 
     It 'schedules a read-only catalog health audit without editing the catalog' {

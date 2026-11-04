@@ -2,7 +2,7 @@
 
 ## Start Kapsel
 
-Extract the **whole release ZIP** to a stable folder and open `kapsel.cmd`. Keep `src` and `assets`
+Clone or download the repository to a stable folder and open `kapsel.cmd`. Keep `src` and `assets`
 beside the launcher. From Windows PowerShell, run `.\kapsel.ps1`. Node.js is not required.
 
 For a launcher on your user PATH, run `.\install.ps1 -AddToUserPath` from that folder, then open
@@ -123,8 +123,9 @@ See [Configuration](CONFIGURATION.md) for the preference override and
 
 ## Upgrade Kapsel
 
-Extract a newer release into a new folder and start its launcher. User favorites live outside the
-release and remain available. If you installed PATH wrappers, rerun `install.ps1` from the new
-location to point them at it. There is no built-in self-update or app-uninstall action.
+Download or pull a newer source snapshot into a new folder and start its launcher. User favorites
+live outside the checkout and remain available. If you installed PATH wrappers, rerun
+`install.ps1` from the new location to point them at it. There is no built-in self-update or
+app-uninstall action.
 
 Configuration flags do not enable features that have not been implemented.

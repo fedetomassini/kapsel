@@ -5,11 +5,11 @@ published; unreleased work is identified explicitly.
 
 ## Unreleased
 
-- Publish release notes from the matching changelog section, including download and checksum steps.
+- Remove the executable builder, ZIP packaging, release workflow and package verification scripts; Kapsel now runs from source while there is no code-signing certificate.
+- Drop the packaging steps from `npm run check` and CI, keeping validation focused on source, catalog, documentation and static analysis.
 - Show a visible focus outline and accessible descriptions across provider, catalog, context and status controls.
 - Measure catalog load, filtering, inventory mapping and grid binding, and document the recorded baseline.
 - Publish a security policy and private vulnerability reporting entry point.
-- Verify the extracted release package, checksum and launcher from a path with spaces in CI.
 - Add guided manual recovery after ten minutes per package without killing the active installer.
 - Add a read-only catalog health audit for official links and provider IDs, with a weekly workflow that reports broken entries without editing the catalog.
 - Refresh stale catalog links and provider IDs for BlurAutoClicker, Visual C++, TeamViewer, WhatsApp, Insomnia, DBeaver, Rider, RustDesk, Open Hardware Monitor, LosslessCut, FileZilla and VMware Workstation Pro.

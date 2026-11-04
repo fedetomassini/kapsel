@@ -4,8 +4,8 @@
 
 Kapsel uses Windows PowerShell 5.1 and Windows Forms on Windows 10/11. Root CMD and npm launchers
 request STA and a **process-scoped** execution-policy bypass. They do not change the machine's
-execution policy or override enterprise controls. Optional EXE builds also require adjacent `src`
-and `assets` directories.
+execution policy or override enterprise controls. Kapsel runs from a source checkout, so keep `src`
+and `assets` beside the launchers.
 
 Provider executables are discovered through `Get-Command` on the app process's PATH. Provider
 configuration, sources, credentials, proxy settings and elevation behavior belong to winget or
@@ -20,7 +20,6 @@ Chocolatey; Kapsel does not offer a separate source-management configuration fil
 | Diagnostics export | User-selected path | Written only when **Diagnostics** is used; redacted and never uploaded |
 | Inventory export | System temporary directory, `kapsel-inventory-<guid>.json` | Removed after a winget scan |
 | Activity and inventory | App memory | Reset on restart |
-| Release build output | Repository `dist/releases` | Recreated by builds; ignored by Git |
 
 Closing Kapsel before copying user files avoids capturing a write in progress. To back up favorites,
 copy `preferences.json`; to restore, close the app and restore that file. Stable catalog keys map
@@ -74,12 +73,12 @@ hidden flags enabling planned profiles, automatic updates, remote catalogs or ca
 ```
 
 The wrappers point to the absolute `src/Kapsel.ps1` in the folder from which the installer was run.
-Keep that source/release folder available. After moving/upgrading it, rerun installation from the
-new location. Start a new terminal to pick up the modified user PATH.
+Keep that source folder available. After moving or updating it, rerun installation from the new
+location. Start a new terminal to pick up the modified user PATH.
 
 There is no dedicated uninstall script. To remove PATH wrappers, identify the directory you used,
 remove only its `kapsel.ps1`/`kapsel.cmd` wrappers, and remove its user PATH entry if no other tools
-need it. Keep or remove the extracted app folder separately. User favorites/logs are not removed
+need it. Keep or remove the source folder separately. User favorites/logs are not removed
 automatically. Do not remove a shared tools directory or modify the machine PATH unnecessarily.
 
 ## Fonts and Assets

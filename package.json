@@ -25,16 +25,8 @@
 		"docs:check": "node ./scripts/Validate-Documentation.mjs",
 		"check:source": "npm run validate && npm test",
 		"check:docs": "npm run test:tooling && npm run catalog:lint && npm run docs:catalog:check && npm run docs:check",
-		"check:static": "npm run check:docs && npm run analyze && npm run build:check && npm run test:release",
-		"check": "npm run check:source && npm run check:static",
-		"build": "npm run build:check",
-		"build:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -SkipExecutable",
-		"test:release": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-ReleasePackage.ps1",
-		"build:release": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1",
-		"build:exe": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 -IncludeExecutable -InstallBuildDependency",
-		"release": "npm run check",
-		"clean": "npm run clean:releases",
-		"clean:releases": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/Clean-Releases.ps1"
+		"check:static": "npm run check:docs && npm run analyze",
+		"check": "npm run check:source && npm run check:static"
 	},
 	"keywords": [
 		"windows",

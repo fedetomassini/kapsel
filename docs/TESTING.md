@@ -3,13 +3,14 @@
 ## Baseline Gates
 
 Run `npm run check` for the local/CI baseline: syntax, Pester, generated catalog, documentation
-links/version consistency, catalog lint, PSScriptAnalyzer and release packaging. Node.js 24+,
+links/version consistency, catalog lint and PSScriptAnalyzer. Node.js 24+,
 Pester 4.10.1 and (for the full gate) PSScriptAnalyzer are required. `npm run analyze` skips static
 analysis with a notice when PSScriptAnalyzer is missing; CI uses `npm run analyze:ci`, which fails
 instead. See [Development](DEVELOPMENT.md) for setup.
 
 `npm run test:tooling` runs Node's built-in tests for documentation link validation, including
-broken targets, duplicate heading anchors, encoded paths, fenced examples and release-tree escapes.
+broken targets, duplicate heading anchors, encoded paths, fenced examples and paths escaping the
+documentation root.
 
 `npm run validate` uses PowerShell's parser. It checks syntax, not style, provider behavior or
 runtime correctness. PSScriptAnalyzer runs with `.psscriptanalyzer.settings.psd1`; findings are
@@ -62,21 +63,15 @@ defaults: 120 and 600 seconds). It checks both warnings, stop-pending results, r
 confirmation and previous inventory during refresh. Worker tests cover cancellation both before
 scheduling and during an active fake call.
 
-Capture a screenshot or exercise a packaged launcher:
+Capture a screenshot or exercise another launcher:
 
 ```powershell
 .\scripts\Test-UiSmoke.ps1 -ScreenshotPath .\dist\ui-smoke.png
-.\scripts\Test-UiSmoke.ps1 -LauncherPath .\dist\releases\Kapsel-1.4.0-windows\kapsel.ps1
+.\scripts\Test-UiSmoke.ps1 -LauncherPath .\tests\Fixtures\PackageUi.ps1
 .\scripts\Test-UiSmoke.ps1 -ExercisePackageActions -WindowWidth 1180 -WindowHeight 700
 ```
 
-Replace the package path with the current version. For an optional executable, use its path as
-`-LauncherPath`; do not combine it with `-ExercisePackageActions`, which always uses the fixture.
-
-`npm run test:release` verifies the built ZIP without opening the UI. It recomputes the SHA-256
-checksum, extracts into a temporary path containing spaces, checks bundled docs/assets/notices, and
-runs the extracted `kapsel.ps1 version` and `help` commands with an isolated data directory. It never
-installs software.
+Do not combine a custom `-LauncherPath` with `-ExercisePackageActions`, which always uses the fixture.
 
 `npm run catalog:health` performs live read-only network probes and is not part of `npm run check`.
 Pester covers its pure outcome classification and report aggregation; the probes themselves require
@@ -100,17 +95,14 @@ their container. Smoke tests exercise actual keyboard input and visible states. 
 changes, screen-reader behavior and multi-monitor moves still require manual evidence; these tests
 do not establish a full accessibility or Windows-version certification.
 
-## Documentation and Package Gates
+## Documentation Gates
 
 `scripts/Validate-Documentation.mjs` checks repository Markdown inline links/images, HTML asset
 links, relative target files, Markdown heading anchors, product-version agreement and Node-version
 configuration. It intentionally skips external URL availability and links inside fenced code.
 Use ordinary inline relative links for local documentation; reference-style links and complex HTML
-are not a general Markdown-parser contract.
-
-`build.ps1` copies the guides/assets/notices, checks documentation within the packaged tree, creates
-the ZIP and verifies archive entries against staged files. This catches omitted linked guides or
-licenses; it does not prove a clean-machine GUI launch, publisher identity or package installation.
+are not a general Markdown-parser contract. The same validator can check a staged copy with
+`--root`, which the documentation tooling tests cover without creating a release archive.
 
 Process/inventory fixture coverage can be extended as behavior changes. Interactive desktop smoke
 tests are not currently run in CI.

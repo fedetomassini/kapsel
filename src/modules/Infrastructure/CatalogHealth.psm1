@@ -7,10 +7,7 @@ if (-not ('System.Net.Http.HttpClient' -as [type])) {
 
 function Get-KapselLinkCheckOutcome {
     [CmdletBinding()]
-    param(
-        [int] $StatusCode = 0,
-        [string] $ErrorMessage = ''
-    )
+    param([int] $StatusCode = 0)
 
     if ($StatusCode -ge 200 -and $StatusCode -le 399) { return 'Ok' }
     if ($StatusCode -eq 404 -or $StatusCode -eq 410) { return 'Broken' }
@@ -21,8 +18,7 @@ function Get-KapselProviderCheckOutcome {
     [CmdletBinding()]
     param(
         [int] $StatusCode = 0,
-        [bool] $Found = $false,
-        [string] $ErrorMessage = ''
+        [bool] $Found = $false
     )
 
     if ($StatusCode -eq 404) { return 'Broken' }
@@ -54,7 +50,8 @@ function Invoke-KapselHttpStatusCheck {
         [Parameter(Mandatory = $true)] [string[]] $Uris,
         [hashtable] $Headers = @{},
         [ValidateRange(1, 120)] [int] $TimeoutSeconds = 15,
-        [ValidateRange(1, 32)] [int] $MaxConcurrency = 8
+        [ValidateRange(1, 32)] [int] $MaxConcurrency = 8,
+        [switch] $ReadContent
     )
 
     if ($Uris.Count -eq 0) { return @() }
@@ -67,6 +64,12 @@ function Invoke-KapselHttpStatusCheck {
     $client = New-Object System.Net.Http.HttpClient($handler)
     $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
     [void] $client.DefaultRequestHeaders.TryAddWithoutValidation('User-Agent', 'Kapsel-Catalog-Health/1.0')
+    $completionOption = if ($ReadContent) {
+        [System.Net.Http.HttpCompletionOption]::ResponseContentRead
+    }
+    else {
+        [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
+    }
     $results = New-Object System.Collections.Generic.List[object]
     try {
         # Chunk instead of queueing every request: HttpClient.Timeout includes time spent waiting
@@ -82,7 +85,7 @@ function Invoke-KapselHttpStatusCheck {
                 }
                 $pending.Add([PSCustomObject] @{
                     Request = $request
-                    Task    = $client.SendAsync($request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+                    Task    = $client.SendAsync($request, $completionOption)
                 })
             }
             $tasks = [System.Threading.Tasks.Task[]] @($pending | ForEach-Object { $_.Task })
@@ -92,6 +95,7 @@ function Invoke-KapselHttpStatusCheck {
             foreach ($item in $pending) {
                 $statusCode = 0
                 $errorMessage = ''
+                $content = ''
                 try {
                     if (-not $item.Task.IsCompleted) {
                         $errorMessage = 'Timed out'
@@ -104,7 +108,12 @@ function Invoke-KapselHttpStatusCheck {
                     }
                     else {
                         $response = $item.Task.Result
-                        try { $statusCode = [int] $response.StatusCode }
+                        try {
+                            $statusCode = [int] $response.StatusCode
+                            if ($ReadContent -and $statusCode -ge 200 -and $statusCode -le 299) {
+                                $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                            }
+                        }
                         finally { $response.Dispose() }
                     }
                 }
@@ -114,7 +123,7 @@ function Invoke-KapselHttpStatusCheck {
                 finally {
                     $item.Request.Dispose()
                 }
-                $results.Add([PSCustomObject] @{ StatusCode = $statusCode; Error = $errorMessage })
+                $results.Add([PSCustomObject] @{ StatusCode = $statusCode; Error = $errorMessage; Content = $content })
             }
         }
         return $results
@@ -138,7 +147,7 @@ function Invoke-KapselCatalogLinkCheck {
     for ($index = 0; $index -lt $items.Count; $index++) {
         $status = $statuses[$index]
         $results[[string] $items[$index].Key] = [PSCustomObject] @{
-            Outcome    = Get-KapselLinkCheckOutcome -StatusCode $status.StatusCode -ErrorMessage $status.Error
+            Outcome    = Get-KapselLinkCheckOutcome -StatusCode $status.StatusCode
             StatusCode = $status.StatusCode
             Error      = $status.Error
         }
@@ -179,7 +188,7 @@ function Invoke-KapselWingetIdCheck {
     for ($index = 0; $index -lt $items.Count; $index++) {
         $status = $statuses[$index]
         $results[[string] $items[$index].Key] = [PSCustomObject] @{
-            Outcome    = Get-KapselProviderCheckOutcome -StatusCode $status.StatusCode -Found ($status.StatusCode -ge 200 -and $status.StatusCode -le 299) -ErrorMessage $status.Error
+            Outcome    = Get-KapselProviderCheckOutcome -StatusCode $status.StatusCode -Found ($status.StatusCode -ge 200 -and $status.StatusCode -le 299)
             StatusCode = $status.StatusCode
             Error      = $status.Error
         }
@@ -195,14 +204,6 @@ function Invoke-KapselChocoIdCheck {
         [ValidateRange(1, 32)] [int] $MaxConcurrency = 4
     )
 
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $handler = New-Object System.Net.Http.HttpClientHandler
-    $handler.AllowAutoRedirect = $true
-    $handler.MaxAutomaticRedirections = 5
-    $handler.MaxConnectionsPerServer = $MaxConcurrency
-    $client = New-Object System.Net.Http.HttpClient($handler)
-    $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
-    [void] $client.DefaultRequestHeaders.TryAddWithoutValidation('User-Agent', 'Kapsel-Catalog-Health/1.0')
     $results = @{}
     $items = New-Object System.Collections.Generic.List[object]
     foreach ($application in $Applications) {
@@ -216,69 +217,18 @@ function Invoke-KapselChocoIdCheck {
         $uri = "https://community.chocolatey.org/api/v2/FindPackagesById()?id=$filterValue&`$select=Id&`$top=1"
         $items.Add([PSCustomObject] @{ Key = $key; Uri = $uri })
     }
-    try {
-        # Chunk for the same reason as the status probe: a request queued behind a full
-        # connection pool would consume its timeout before it ever starts.
-        for ($offset = 0; $offset -lt $items.Count; $offset += $MaxConcurrency) {
-            $end = [Math]::Min($offset + $MaxConcurrency - 1, $items.Count - 1)
-            $chunk = @($items[$offset..$end])
-            $pending = New-Object System.Collections.Generic.List[object]
-            foreach ($item in $chunk) {
-                $request = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $item.Uri)
-                $pending.Add([PSCustomObject] @{
-                    Key     = $item.Key
-                    Request = $request
-                    Task    = $client.SendAsync($request, [System.Net.Http.HttpCompletionOption]::ResponseContentRead)
-                })
-            }
-            $tasks = [System.Threading.Tasks.Task[]] @($pending | ForEach-Object { $_.Task })
-            try { [void] [System.Threading.Tasks.Task]::WaitAll($tasks, [TimeSpan]::FromSeconds($TimeoutSeconds + 5)) }
-            catch { Write-Verbose 'One or more probes did not finish cleanly; each task is inspected below.' }
 
-            foreach ($item in $pending) {
-                $statusCode = 0
-                $errorMessage = ''
-                $found = $false
-                try {
-                    if (-not $item.Task.IsCompleted) {
-                        $errorMessage = 'Timed out'
-                    }
-                    elseif ($item.Task.IsFaulted) {
-                        $errorMessage = $item.Task.Exception.GetBaseException().Message
-                    }
-                    elseif ($item.Task.IsCanceled) {
-                        $errorMessage = 'Cancelled'
-                    }
-                    else {
-                        $response = $item.Task.Result
-                        try {
-                            $statusCode = [int] $response.StatusCode
-                            if ($statusCode -ge 200 -and $statusCode -le 299) {
-                                $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-                                $found = $body -match '<entry[\s>]'
-                            }
-                        }
-                        finally { $response.Dispose() }
-                    }
-                }
-                catch {
-                    $errorMessage = $_.Exception.Message
-                }
-                finally {
-                    $item.Request.Dispose()
-                }
-                $results[$item.Key] = [PSCustomObject] @{
-                    Outcome    = Get-KapselProviderCheckOutcome -StatusCode $statusCode -Found $found -ErrorMessage $errorMessage
-                    StatusCode = $statusCode
-                    Error      = $errorMessage
-                }
-            }
+    $statuses = @(Invoke-KapselHttpStatusCheck -Uris @($items | ForEach-Object { $_.Uri }) -TimeoutSeconds $TimeoutSeconds -MaxConcurrency $MaxConcurrency -ReadContent)
+    for ($index = 0; $index -lt $items.Count; $index++) {
+        $status = $statuses[$index]
+        $found = $status.Content -match '<entry[\s>]'
+        $results[[string] $items[$index].Key] = [PSCustomObject] @{
+            Outcome    = Get-KapselProviderCheckOutcome -StatusCode $status.StatusCode -Found $found
+            StatusCode = $status.StatusCode
+            Error      = $status.Error
         }
-        return $results
     }
-    finally {
-        $client.Dispose()
-    }
+    return $results
 }
 
 function Get-KapselHealthResult {
@@ -301,7 +251,8 @@ function Get-KapselHealthCounts {
 
     $counts = [PSCustomObject] @{ Ok = 0; Broken = 0; Inconclusive = 0; Skipped = 0 }
     foreach ($entry in $Entries) {
-        $outcome = [string] $entry.PSObject.Properties["$($Prefix)Outcome"].Value
+        $property = $entry.PSObject.Properties["$($Prefix)Outcome"]
+        $outcome = if ($null -ne $property) { [string] $property.Value } else { '' }
         if ($outcome -in @('Ok', 'Broken', 'Inconclusive', 'Skipped')) {
             $counts.$outcome = [int] $counts.$outcome + 1
         }

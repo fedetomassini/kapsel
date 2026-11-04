@@ -39,17 +39,12 @@ try {
     }
     $launchWatch = [Diagnostics.Stopwatch]::StartNew()
     $launcherDirectory = Split-Path -Parent $resolvedLauncherPath
-    if ([System.IO.Path]::GetExtension($resolvedLauncherPath) -ieq '.exe') {
-        $process = Start-Process -FilePath $resolvedLauncherPath -WorkingDirectory $launcherDirectory -PassThru
-    }
-    else {
-        $process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
-            '-NoProfile',
-            '-STA',
-            '-ExecutionPolicy', 'Bypass',
-            '-File', ('"{0}"' -f $resolvedLauncherPath)
-        ) -WorkingDirectory $launcherDirectory -PassThru
-    }
+    $process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+        '-NoProfile',
+        '-STA',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', ('"{0}"' -f $resolvedLauncherPath)
+    ) -WorkingDirectory $launcherDirectory -PassThru
 
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     do {

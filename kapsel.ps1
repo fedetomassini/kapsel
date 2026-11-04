@@ -1,32 +1,19 @@
-# Repository and packaged-executable launcher for Kapsel.
-# The runtime root fallback keeps ps2exe builds independent from PowerShell's $PSScriptRoot behavior.
+# Repository launcher for Kapsel. Kapsel runs from source; there is no executable build.
 
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $Arguments
 )
 
-function Get-KapselLauncherRoot {
-    [CmdletBinding()]
-    param()
-
-    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
-        return $PSScriptRoot
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($PSCommandPath)) {
-        return Split-Path -Parent $PSCommandPath
-    }
-
-    $processPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-    if (-not [string]::IsNullOrWhiteSpace($processPath)) {
-        return Split-Path -Parent $processPath
-    }
-
-    return (Get-Location).Path
+$launcherRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    $PSScriptRoot
 }
-
-$launcherRoot = Get-KapselLauncherRoot
+elseif (-not [string]::IsNullOrWhiteSpace($PSCommandPath)) {
+    Split-Path -Parent $PSCommandPath
+}
+else {
+    (Get-Location).Path
+}
 $entryPoint = Join-Path $launcherRoot 'src\Kapsel.ps1'
 
 if (-not (Test-Path -LiteralPath $entryPoint)) {

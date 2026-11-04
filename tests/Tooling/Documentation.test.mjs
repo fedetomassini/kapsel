@@ -41,7 +41,7 @@ test('checks encoded file paths and same-document anchors', (t) => {
   assert.deepEqual(validateDocumentationLinks(root, [document]), []);
 });
 
-test('rejects links escaping the release tree and directory targets', (t) => {
+test('rejects links escaping the documentation root and directory targets', (t) => {
   const { root, document } = fixture(t, '[Outside](../outside.md) [Directory](docs)');
   const failures = validateDocumentationLinks(root, [document]);
   assert.equal(failures.length, 2);

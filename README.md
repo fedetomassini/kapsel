@@ -10,8 +10,8 @@ runtime, and keeps package operations explicit and reviewable.
 
 Version `1.4.0` adds exportable diagnostics, restart-required reporting and remembered UI preferences
 on top of responsive background operations, visible package progress, installed-app detection, and
-update availability. Releases use a script-based ZIP by default, with executable builds available as
-an explicit option.
+update availability. Kapsel runs from source: there are no packaged executables or release archives
+while the project has no code-signing certificate.
 
 [User guide](docs/USER_GUIDE.md) · [Development](docs/DEVELOPMENT.md) ·
 [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md)
@@ -93,7 +93,7 @@ input, such as search and checkboxes, are editable or selectable.
 
 ## Run Kapsel
 
-From PowerShell:
+Kapsel runs from a source checkout; clone or download the repository first. From PowerShell:
 
 ```powershell
 .\kapsel.ps1
@@ -213,8 +213,8 @@ is absent from Windows: winget export only includes packages it can match to a c
 When update lookup fails, installed state remains visible and the update check is marked unavailable.
 
 Favorites are stored per Windows user in `%LOCALAPPDATA%\Kapsel\preferences.json`. The file uses a
-versioned JSON format and is written atomically, so installing a new Kapsel release does not replace
-personal preferences. Schema 2 also remembers the active provider and window size/position; schema 1
+versioned JSON format and is written atomically, so updating Kapsel does not replace personal
+preferences. Schema 2 also remembers the active provider and window size/position; schema 1
 and legacy favorites-only files are upgraded on the next write.
 Unsupported schemas and malformed files are preserved; favorites are disabled when their file cannot
 be loaded. Activity explains how to back up or move the file before resetting it. Writes also check
@@ -291,8 +291,6 @@ npm run test:ui:packages
 npm run bench:catalog
 npm run docs:catalog:check
 npm run docs:check
-npm run build:check
-npm run test:release
 ```
 
 `test:ui:packages` exercises confirmation, background progress, success, and failure in the real
@@ -301,50 +299,16 @@ window using a simulated provider. It does not install or update any software.
 See [Development](docs/DEVELOPMENT.md) for Pester setup and the command matrix, and
 [Testing](docs/TESTING.md) for deterministic tests and interactive smoke-test requirements.
 
-Remove generated release directories and ZIP files without touching other `dist` content:
+## Distribution
 
-```powershell
-npm run clean:releases
-```
+Kapsel is distributed from source while there is no code-signing certificate. The repository does
+not build executables, installers, ZIP archives or checksums, and no release workflow publishes
+binaries. Run `kapsel.ps1` or `kapsel.cmd` from a checkout and keep `src` and `assets` beside the
+launchers.
 
-For a full Windows release build:
-
-```powershell
-npm run build:release
-```
-
-The release build creates:
-
-```txt
-dist/releases/Kapsel-<version>-windows/
-dist/releases/Kapsel-<version>-windows.zip
-dist/releases/Kapsel-<version>-windows.zip.sha256
-```
-
-The default release is a script-based ZIP. Extract the complete archive and open `kapsel.cmd`.
-Keep the adjacent `src` and `assets` directories. No executable compilation dependency is needed.
-Each archive is published with a sibling `.sha256` file; compare it before extracting a downloaded
-build (`Get-FileHash .\Kapsel-<version>-windows.zip -Algorithm SHA256`).
-
-An optional unsigned executable can still be built with `npm run build:exe`; it also depends on
-the adjacent directories. This is an opt-in development artifact, excluded from automated releases.
-Script distribution does not provide publisher certification or guarantee that Windows security
-software will allow the application.
-
-## Release Automation
-
-Update `package.json` and `ProductMetadata.psm1` to the same version, commit the release, then push
-a matching semantic-version tag:
-
-```powershell
-git tag v1.4.0
-git push origin v1.4.0
-```
-
-The Quality workflow validates source changes and pull requests. The Release workflow runs the
-same checks, builds the distributable ZIP, verifies its SHA-256 checksum, and publishes both assets
-only from a matching version tag.
-See [Releasing](docs/RELEASING.md) for the complete preparation, verification, and recovery procedure.
+See [Distribution](docs/DISTRIBUTION.md) for the rationale, launcher setup and the requirements for
+reintroducing signed builds. Update `package.json` and `ProductMetadata.psm1` together when the
+version changes; local checks reject drift.
 
 ## Documentation
 
@@ -352,9 +316,9 @@ See [Releasing](docs/RELEASING.md) for the complete preparation, verification, a
 | --- | --- |
 | [README.md](./README.md) | Product overview, setup, operation, and contributor entry point. |
 | [CATALOG.md](./CATALOG.md) | Generated list of available applications and package identifiers. |
-| [CHANGELOG.md](./CHANGELOG.md) | Released user-visible, architectural, catalog, and packaging changes. |
+| [CHANGELOG.md](./CHANGELOG.md) | User-visible, architectural, catalog and distribution changes. |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Issue, catalog, branch, commit, and pull-request workflow. |
-| [docs/README.md](./docs/README.md) | Documentation index for users, contributors, and maintainers. |
+| [docs/README.md](./docs/README.md) | Documentation index for users, contributors and maintainers. |
 | [SUPPORT.md](./SUPPORT.md) | Troubleshooting entry point and issue diagnostics. |
 | [SECURITY.md](./SECURITY.md) | Supported versions and private vulnerability reporting. |
 

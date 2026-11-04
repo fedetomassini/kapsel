@@ -24,7 +24,7 @@ $settingsPath = Join-Path $projectRoot '.psscriptanalyzer.settings.psd1'
 if (-not (Test-Path -LiteralPath $settingsPath)) { throw "PSScriptAnalyzer settings not found: $settingsPath" }
 
 $results = @()
-foreach ($target in @('src', 'scripts', 'build.ps1', 'kapsel.ps1', 'install.ps1')) {
+foreach ($target in @('src', 'scripts', 'kapsel.ps1', 'install.ps1')) {
     $path = Join-Path $projectRoot $target
     if (-not (Test-Path -LiteralPath $path)) { continue }
     Write-Verbose "Analyzing $path"

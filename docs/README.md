@@ -22,20 +22,20 @@ Kapsel's docs describe shipping behavior. Start at the root [README](../README.m
 | [Testing](TESTING.md) | Pester boundaries, fixtures and UI smoke tests |
 | [Performance](PERFORMANCE.md) | Deterministic catalog benchmark, baseline and comparison method |
 | [Catalog maintenance](CATALOG.md) | Source schema, normalization and provider-ID verification |
-| [Releasing](RELEASING.md) | Versioning, package contents, publication and recovery |
+| [Distribution](DISTRIBUTION.md) | Source-only distribution, launcher setup and future signed builds |
 | [Changelog](../CHANGELOG.md) | Released history and unreleased repository changes |
 
 ## Documentation Rules
 
 - Root documents are canonical; `.github` contains workflows, forms and legacy document pointers.
-- Use relative links to tracked files and Markdown headings so the same guides work offline in a ZIP.
+- Use relative links to tracked files and Markdown headings so the guides work offline in a checkout.
 - Keep descriptions in English, following the existing documentation and UI convention.
 - Update a guide with the command, behavior, persistent-format or public-contract change it describes.
 - Generate `CATALOG.md` with `npm run docs:catalog`; do not hand-edit it.
 - Run `npm run docs:check` for local links/anchors and version consistency, and
   `npm run docs:catalog:check` for generated catalog drift. External website availability is not
   checked by the offline documentation gate.
-- Add new guide entry points here; update `build.ps1` if a guide needs an additional bundled asset.
+- Add new guide entry points here and keep relative assets beside the documents that use them.
 
-There is no separate documentation-site generator or dependency install. Markdown is shipped with
-the release. Directory-level READMEs provide navigation, not duplicate API specifications.
+There is no separate documentation-site generator or dependency install. Markdown ships with the
+repository. Directory-level READMEs provide navigation, not duplicate API specifications.

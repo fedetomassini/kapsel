@@ -93,15 +93,14 @@ errors, including sharing/permission failures. See [Configuration](CONFIGURATION
 ## Installed PATH Launcher Breaks After a Move
 
 `install.ps1` writes wrappers pointing to the original source directory. Run it again from the new
-release location, or restore the previous folder. It does not copy/install the full app into the
-wrapper directory. See [Configuration](CONFIGURATION.md#installing-path-wrappers).
+location, or restore the previous folder. It does not copy/install the full app into the wrapper
+directory. See [Configuration](CONFIGURATION.md#installing-path-wrappers).
 
-## Tests or Builds Fail
+## Checks Fail
 
 - Pester version error: install/import 4.10.1 in Windows PowerShell, as in [Development](DEVELOPMENT.md).
 - Generated catalog outdated: run `npm run docs:catalog` and review/commit root `CATALOG.md`.
 - Local documentation link error: fix the reported path/heading, then run `npm run docs:check`.
-- Optional executable error: `npm run build:exe` needs ps2exe; default builds do not.
 - UI smoke failure: ensure an unlocked interactive desktop and no concurrent smoke run. Ordinary
   inventory smoke depends on provider/source availability; the package fixture is deterministic.
 

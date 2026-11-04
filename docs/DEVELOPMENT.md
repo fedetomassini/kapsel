@@ -60,16 +60,10 @@ Pester tests. UI checks need an unlocked interactive Windows desktop.
 | `npm run analyze:ci` | PSScriptAnalyzer gate for CI | Fails when PSScriptAnalyzer is missing or finds new findings |
 | `npm run check:source` | Syntax and Pester suites | CI test job |
 | `npm run check:docs` | Tooling, catalog lint, catalog drift and documentation checks | CI static job |
-| `npm run check` | All source/static checks plus package build | Creates the script ZIP under dist/releases |
+| `npm run check` | All source and static checks | No build or packaging step |
 | `npm run test:ui` | Exercise real window and inventory | Interactive desktop; installed provider/source may be queried |
 | `npm run test:ui:packages` | Exercise confirmations and background outcomes | Interactive desktop; fixture replaces real package execution |
 | `npm run bench:catalog` | Measure catalog load, search, filters, inventory mapping and grid binding | STA; real and synthetic 1k/5k catalogs; writes dist/catalog-performance.json |
-| `npm run build`, `npm run build:check` | Build and verify script ZIP contents | Creates release directory and archive, no executable compiler |
-| `npm run test:release` | Verify checksum, extracted contents and launcher in a path with spaces | Reads the built ZIP; no software installation |
-| `npm run build:release` | Build default release archive | Same script distribution as build check |
-| `npm run build:exe` | Opt-in unsigned executable and ZIP | May install ps2exe from PowerShell Gallery |
-| `npm run release` | Run complete local release checks and build | Does not publish or push a Git tag |
-| `npm run clean`, `npm run clean:releases` | Remove Kapsel release artifacts | Scoped to matching release directories/ZIPs; see scripts |
 
 ## Change Workflow
 
@@ -89,12 +83,12 @@ non-obvious invariant or provider quirk rather than narrating a function body.
 
 - `.editorconfig` specifies new-file whitespace; it does not reformat existing sources automatically.
 - `.gitattributes` keeps text diffs stable and CMD launchers CRLF; binary assets are marked explicitly.
-- `.github/workflows/quality.yml` runs read-only checks plus local package creation for PRs/main.
-- `.github/workflows/release.yml` additionally validates the release tag and publishes the archive.
+- `.github/workflows/quality.yml` runs read-only source, documentation and analysis checks for PRs/main.
+- There is no executable or release workflow; see [Distribution](DISTRIBUTION.md).
 - Dependabot checks GitHub Actions; there are no npm dependencies to upgrade today.
 
-See [Testing](TESTING.md), [Architecture](ARCHITECTURE.md), and [Releasing](RELEASING.md) for
-boundary contracts and package lifecycle details.
+See [Testing](TESTING.md), [Architecture](ARCHITECTURE.md), and [Distribution](DISTRIBUTION.md) for
+boundary contracts and distribution details.
 
 ## Performance Measurement
 

@@ -7,11 +7,11 @@ For development setup, use [Development](docs/DEVELOPMENT.md).
 
 Use the [GitHub issue forms](https://github.com/fedetomassini/kapsel/issues/new/choose).
 Choose bug report, feature request, or catalog request according to the problem.
-Search existing issues first and reproduce with the latest release when possible.
+Search existing issues first and reproduce with the latest `main` checkout when possible.
 
 Include:
 
-- Kapsel version (`.\kapsel.ps1 version`) and source checkout or release ZIP.
+- Kapsel version (`.\kapsel.ps1 version`) and commit hash.
 - Windows version and Windows PowerShell version (`$PSVersionTable.PSVersion`).
 - Selected provider and its version (`winget --version` or `choco --version`).
 - Application key and package identifier, when package-related.

@@ -12,7 +12,6 @@ Describe the user-visible outcome and why the change is needed.
 - [ ] Catalog
 - [ ] Architecture or refactor
 - [ ] Documentation
-- [ ] Build or release
 
 ## Architecture
 
@@ -26,9 +25,7 @@ catalog-only or documentation-only pull request.
 - [ ] `npm run test:tooling`
 - [ ] `npm run docs:check`
 - [ ] `npm run docs:catalog:check`
-- [ ] `npm run build:check`
 - [ ] UI smoke test, when presentation changed
-- [ ] Full release build, when packaging changed
 
 ## Catalog Checklist
 
@@ -51,7 +48,7 @@ List updated documents or explain why no documentation change is required.
 ## Acceptance and Compatibility
 
 Describe acceptance evidence. Note any impact
-on stable catalog keys, preferences/schema versions, provider contracts, or packaged files.
+on stable catalog keys, preferences/schema versions or provider contracts.
 
 ## Related Issue
 

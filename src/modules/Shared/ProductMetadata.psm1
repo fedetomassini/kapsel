@@ -1,4 +1,4 @@
-# Stable product metadata shared by the entry point, UI, build, and release workflow.
+# Stable product metadata shared by the entry point and UI.
 Set-StrictMode -Version Latest
 
 function Get-KapselProductMetadata {

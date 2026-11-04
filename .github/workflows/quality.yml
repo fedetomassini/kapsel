@@ -78,14 +78,8 @@ jobs:
           }
           Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
 
-      - name: Validate tooling, documentation, and package
+      - name: Validate tooling and documentation
         run: npm run check:docs
 
       - name: Run PSScriptAnalyzer baseline gate
         run: npm run analyze:ci
-
-      - name: Validate release package structure
-        run: npm run build:check
-
-      - name: Verify extracted release package
-        run: npm run test:release

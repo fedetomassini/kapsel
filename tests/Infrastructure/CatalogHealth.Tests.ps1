@@ -13,7 +13,7 @@ Describe 'Catalog health classification' {
 
     It 'keeps auth, rate-limit, server and transport failures inconclusive' {
         foreach ($status in @(0, 400, 401, 403, 405, 429, 500, 503)) {
-            (Get-KapselLinkCheckOutcome -StatusCode $status -Error 'probe failed') | Should Be 'Inconclusive'
+            (Get-KapselLinkCheckOutcome -StatusCode $status) | Should Be 'Inconclusive'
         }
     }
 
@@ -22,7 +22,7 @@ Describe 'Catalog health classification' {
         (Get-KapselProviderCheckOutcome -StatusCode 200 -Found $false) | Should Be 'Broken'
         (Get-KapselProviderCheckOutcome -StatusCode 404 -Found $false) | Should Be 'Broken'
         (Get-KapselProviderCheckOutcome -StatusCode 403 -Found $false) | Should Be 'Inconclusive'
-        (Get-KapselProviderCheckOutcome -StatusCode 0 -Found $false -Error 'Timed out') | Should Be 'Inconclusive'
+        (Get-KapselProviderCheckOutcome -StatusCode 0 -Found $false) | Should Be 'Inconclusive'
     }
 
     It 'maps winget identifiers to the manifest path without inventing segments' {
